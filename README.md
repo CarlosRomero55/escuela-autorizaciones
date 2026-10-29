@@ -9,11 +9,11 @@ Proyecto de portafolio: sistema web para una escuela primaria de Ecuador, con po
 | Fase | Contenido | Estado |
 |---|---|---|
 | 1 | Layout y sistema de diseño, roles con ámbito, motor de permisos, sesiones en servidor, dispositivos y alertas, TOTP por rol, activación y recuperación de cuentas, estructura académica, salones, asignaciones y matrículas | **Hecha** |
-| 6 | Autorizaciones digitales, enlaces firmados para familias, códigos de recogida de un solo uso, persona no autorizada | Backend y página de familias hechos; falta la PWA de portería |
-| 3 | Portal docente y estudiante: tareas, entregas, rúbricas, calificaciones | Siguiente |
+| 3 | Clases con muro, tareas y borradores, entregas con archivos validados, prórrogas, rúbricas, calificación numérica y cualitativa, cumplimiento por alumno con exportación CSV, promedios por trimestre | **Hecha** |
+| 6 | Autorizaciones digitales, enlaces firmados para familias, códigos de recogida de un solo uso, persona no autorizada | Backend y página de familias hechos; falta la PWA de portería (siguiente) |
 | 2, 4, 5, 7–11 | Sitio público, portal del representante, boletines, bienestar, directivos, evaluaciones, operación | Diseño en [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md) |
 
-Calidad: **156 pruebas** (en SQLite y PostgreSQL), que incluyen los intentos de acceso cruzado entre roles, y una comprobación de que la migración coincide con el modelo. Lint con ruff e integración continua en GitHub Actions.
+Calidad: **187 pruebas** (en SQLite y PostgreSQL), que incluyen los intentos de acceso cruzado entre roles, y una comprobación de que la migración coincide con el modelo. Lint con ruff e integración continua en GitHub Actions.
 
 ## Lo más destacado
 
@@ -23,6 +23,8 @@ Calidad: **156 pruebas** (en SQLite y PostgreSQL), que incluyen los intentos de 
 - **Segundo factor obligatorio por rol**, con enrolamiento guiado por código QR generado en el servidor.
 - **Sin secretos en claro:** argon2 para contraseñas; HMAC para tokens y códigos; AES-256-GCM para documentos y secretos TOTP.
 - **CSP estricta:** Bootstrap, HTMX, iconos y la fuente Inter se sirven desde el propio servidor. No hay CDN ni scripts en línea.
+- **Archivos de entregas seguros:** el tipo se decide por el contenido y no por la extensión, hay límites por tipo, las fotos pierden el EXIF y la ubicación GPS, los nombres en disco son aleatorios, el código nunca se ejecuta y las descargas llevan un CSP `sandbox`.
+- **Calificaciones según el Instructivo de Evaluación 2025:** escala 1,00–10,00 con dos decimales truncados, equivalencias cualitativas y Preparatoria solo cualitativa. Los valores están marcados para **verificar** con la normativa vigente.
 - **Diseño responsive** probado a 390 px (teléfono), 1366 px (Chromebook) y 1440 px (escritorio). Ver [docs/ESTILO.md](docs/ESTILO.md).
 
 ## Probarlo localmente
@@ -75,6 +77,8 @@ app/
   web.py          capa web: sesión, CSRF, menú por rol, renderizado
   security.py     contraseñas, tokens, códigos, política de contraseñas
   crypto.py       cifrado AES-256-GCM
+  academico.py    tareas, entregas, prórrogas, calificaciones y promedios
+  archivos.py     validación de archivos y almacenamiento (local; S3/R2 en producción)
   seed.py         datos ficticios
   routers/        acceso, portal, administración, familias, portería, API
 migrations/       migraciones de Alembic
@@ -93,6 +97,7 @@ tests/            pruebas con pytest
 | Sesiones y dispositivos | Seguridad de la cuenta | Token como HMAC; huella del dispositivo como HMAC |
 | Documento de adultos autorizados | Verificar identidad en portería | AES-256-GCM + HMAC |
 | Respuestas de autorización: firmante, fecha, IP, navegador y hash del texto | Evidencia de consentimiento | Solo coordinación y administración |
+| Tareas, entregas, archivos y calificaciones | Trabajo académico | Solo el alumno, sus representantes, el docente de la clase, el directivo del área y el administrador con motivo |
 | Bitácora (sin documentos, teléfonos ni correos) | Trazabilidad | Inmutable en PostgreSQL |
 
 La retención por tipo de dato y la anonimización al cierre del año lectivo se implementan con los procesos en segundo plano.

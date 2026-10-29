@@ -27,6 +27,19 @@ templates = Jinja2Templates(
 )
 templates.env.filters["local"] = local
 templates.env.filters["hace"] = hace
+
+
+def nota(valor) -> str:
+    """Nota con coma decimal y dos cifras, como se escribe en Ecuador: 8,75."""
+    return "" if valor is None else f"{valor:.2f}".replace(".", ",")
+
+
+def tamano(valor: int) -> str:
+    return f"{valor / 1048576:.1f} MB".replace(".", ",") if valor >= 1048576 else f"{max(1, valor // 1024)} KB"
+
+
+templates.env.filters["nota"] = nota
+templates.env.filters["tamano"] = tamano
 templates.env.globals["ETIQUETAS_ROL"] = ETIQUETAS_ROL
 templates.env.globals["TIPOS"] = {"salida": "Salida pedagógica", "vacuna": "Vacuna", "evento": "Evento", "otro": "Otro"}
 
@@ -143,6 +156,8 @@ def menu(actor: Actor, settings: Settings) -> list[tuple[str, list[tuple[str, st
     grupos: list[tuple[str, list[tuple[str, str, str, str]]]] = [
         ("", [("inicio", "/portal", "bi-house-door", "Inicio")]),
     ]
+    if actor.rol == "docente":
+        grupos.append(("Docencia", [("rubricas", "/portal/rubricas", "bi-list-check", "Rúbricas")]))
     if actor.rol == "administrador":
         grupos.append(("Gestión académica", [
             ("estructura", "/admin/estructura", "bi-diagram-3", "Estructura académica"),
@@ -203,6 +218,11 @@ def render_publico(request: Request, plantilla: str, contexto: dict | None = Non
         respuesta.set_cookie(sesiones.COOKIE_CSRF_PREVIO, token, httponly=True, secure=settings.es_produccion,
                              samesite="strict", path="/")
     return respuesta
+
+
+def no_encontrado(w: Web) -> HTMLResponse:
+    """Misma respuesta para lo inexistente y lo que está fuera de alcance."""
+    return render(w, "portal/no_encontrado.html", status_code=404)
 
 
 def pagina_error(request: Request, mensaje: str, status_code: int, titulo: str = "No se puede continuar") -> HTMLResponse:

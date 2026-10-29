@@ -31,7 +31,7 @@
       <div class="card-header" id="t-periodos">Periodos de calificación {% if anio %}· {{ anio.nombre }}{% endif %}</div>
       <ul class="list-group list-group-flush">
         {% for p in periodos %}
-          <li class="list-group-item d-flex justify-content-between"><span>{{ p.nombre }}</span><span class="text-secondary pequeno">{{ p.inicio.strftime("%d/%m/%Y") }} – {{ p.fin.strftime("%d/%m/%Y") }}</span></li>
+          <li class="list-group-item d-flex justify-content-between gap-2"><span>{{ p.nombre }}{% if p.cerrado %} {{ estado("Cerrado", "neutro", "bi-lock") }}{% endif %}</span><span class="text-secondary pequeno">{{ p.inicio.strftime("%d/%m/%Y") }} – {{ p.fin.strftime("%d/%m/%Y") }}</span></li>
         {% else %}<li class="list-group-item text-secondary">Sin periodos.</li>{% endfor %}
       </ul>
       {% if anio %}
@@ -43,6 +43,20 @@
         <div class="col-sm-2"><button class="btn btn-primary w-100">Crear</button></div>
       </form>
       {% endif %}
+    </section>
+
+    <section class="card mt-4" aria-labelledby="t-escalas">
+      <div class="card-header" id="t-escalas">Escalas de calificación</div>
+      {% for e in escalas %}
+        <div class="card-body{% if not loop.first %} borde-arriba{% endif %}">
+          <p class="fw-semibold mb-1">{{ e.nombre }}{% if e.minimo_aprobacion %} <span class="text-secondary fw-normal pequeno">· aprueba con {{ e.minimo_aprobacion | nota }}</span>{% endif %}</p>
+          <p class="pequeno text-secondary mb-2">Niveles: {{ (niveles | selectattr("escala_id", "equalto", e.id) | map(attribute="nombre") | join(", ")) or "ninguno" }}</p>
+          <div class="d-flex flex-wrap gap-1">
+            {% for r in e.rangos %}<span class="estado estado-neutro" title="{{ r.descripcion }}">{{ r.codigo }}{% if r.minimo is not none %} {{ r.minimo | nota }}–{{ r.maximo | nota }}{% endif %}</span>{% endfor %}
+          </div>
+          {% if e.fuente %}<p class="pequeno text-secondary mt-2 mb-0"><i class="bi bi-info-circle" aria-hidden="true"></i> {{ e.fuente }}</p>{% endif %}
+        </div>
+      {% else %}<div class="card-body text-secondary">Sin escalas configuradas.</div>{% endfor %}
     </section>
   </div>
 

@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     # Decisión de la dirección: grado (orden) desde el que los estudiantes tienen cuenta propia
     grado_minimo_cuenta_estudiante: int = 5
 
+    # Archivos de entregas (disco local; en producción se reemplaza por un almacenamiento S3/R2)
+    archivos_dir: str = "datos/archivos"
+
     # Autorizaciones y recogida
     pickup_code_ttl_minutes: int = 10
     pickup_code_max_attempts: int = 5

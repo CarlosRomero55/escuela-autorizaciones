@@ -1,0 +1,55 @@
+{% extends "layout.html" %}
+{% from "_macros.html" import encabezado, vacio, estado, csrf_input %}
+{% block titulo %}Rúbricas{% endblock %}
+{% block contenido %}
+{{ encabezado("Rúbricas", "Criterios reutilizables para evaluar tareas y proyectos") }}
+<div class="row g-4">
+  <div class="col-lg-7">
+    {% for m in materias %}
+      <h2 class="h5 mb-3">{{ m.nombre }}</h2>
+      {% for r in rubricas[m.id] %}
+        <div class="card mb-3">
+          <div class="card-header d-flex justify-content-between align-items-center gap-2">
+            <span>{{ r.titulo }}</span>
+            {% if r.autor_id == usuario.id %}{{ estado("Mía" ~ (" · compartida" if r.compartida else ""), "info") }}{% else %}<span class="pequeno text-secondary">{{ r.autor.nombre }}</span>{% endif %}
+          </div>
+          <ul class="list-group list-group-flush">
+            {% for c in r.criterios %}<li class="list-group-item d-flex justify-content-between gap-3 pequeno"><span>{{ c.descripcion }}</span><span class="text-secondary flex-shrink-0">{{ c.puntos | nota }} pts</span></li>{% endfor %}
+          </ul>
+        </div>
+      {% else %}
+        <div class="card mb-3">{{ vacio("bi-list-check", "Todavía no hay rúbricas de esta materia.") }}</div>
+      {% endfor %}
+    {% else %}
+      <div class="card">{{ vacio("bi-list-check", "No tiene materias asignadas.") }}</div>
+    {% endfor %}
+  </div>
+  {% if materias %}
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-header">Nueva rúbrica</div>
+      <form class="card-body" method="post" action="/portal/rubricas">
+        {{ csrf_input(csrf) }}
+        <div class="mb-3"><label class="form-label" for="materia">Materia</label>
+          <select class="form-select" id="materia" name="materia_id">{% for m in materias %}<option value="{{ m.id }}">{{ m.nombre }}</option>{% endfor %}</select></div>
+        <div class="mb-3"><label class="form-label" for="titulo">Título</label><input class="form-control" id="titulo" name="titulo" maxlength="160" required></div>
+        <fieldset class="mb-3"><legend class="form-label">Criterios y puntos</legend>
+          {% for i in range(5) %}
+          <div class="d-flex gap-2 mb-2">
+            <label class="visually-hidden" for="crit-{{ i }}">Criterio {{ i + 1 }}</label>
+            <input class="form-control" id="crit-{{ i }}" name="criterio" placeholder="Criterio {{ i + 1 }}" maxlength="300" {% if i < 2 %}required{% endif %}>
+            <label class="visually-hidden" for="pts-{{ i }}">Puntos del criterio {{ i + 1 }}</label>
+            <input class="form-control ancho-corto" id="pts-{{ i }}" name="puntos" inputmode="decimal" placeholder="Pts" {% if i < 2 %}required{% endif %}>
+          </div>
+          {% endfor %}
+          <div class="form-text">Deje vacías las filas que no use.</div>
+        </fieldset>
+        <div class="form-check mb-3"><input class="form-check-input" type="checkbox" id="compartida" name="compartida" checked>
+          <label class="form-check-label" for="compartida">Compartir con los docentes de la materia</label></div>
+        <button class="btn btn-primary" type="submit">Crear rúbrica</button>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

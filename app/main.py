@@ -4,6 +4,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.archivos import Almacen
 from app.auth import router as auth_router
 from app.config import Settings, get_settings
 from app.db import create_session_factory
@@ -11,6 +12,7 @@ from app.ratelimit import RateLimiter
 from app.routers.acceso import router as acceso_router
 from app.routers.admin import router as admin_router
 from app.routers.admin_html import router as admin_html_router
+from app.routers.clases import router as clases_router
 from app.routers.familias import api as familias_api
 from app.routers.familias import publico as familias_publico
 from app.routers.portal import router as portal_router
@@ -49,6 +51,7 @@ def create_app(session_factory=None, settings: Settings | None = None) -> FastAP
 
     app.state.settings = settings
     app.state.session_factory = session_factory or create_session_factory(settings.database_url)
+    app.state.almacen = Almacen(settings.archivos_dir)
     # Límites por conexión, además del bloqueo por cuenta que se guarda en la base de datos
     app.state.login_limiter = RateLimiter(max_hits=20, window_seconds=300)
     app.state.totp_limiter = RateLimiter(max_hits=5, window_seconds=300)
@@ -103,7 +106,7 @@ def create_app(session_factory=None, settings: Settings | None = None) -> FastAP
 
     app.mount("/static", StaticFiles(directory=RAIZ / "static"), name="static")
     for router in (auth_router, admin_router, familias_api, familias_publico, porteria_api, publico_codigos,
-                   acceso_router, portal_router, admin_html_router):
+                   acceso_router, portal_router, clases_router, admin_html_router):
         app.include_router(router)
 
     @app.get("/", include_in_schema=False)

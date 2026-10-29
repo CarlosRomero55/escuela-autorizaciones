@@ -54,6 +54,7 @@ def main() -> int:
     print(f"Usuarios: {resumen['usuarios']} (docentes: {resumen['docentes']}, "
           f"estudiantes con cuenta: {resumen['estudiantes_con_cuenta']})")
     print(f"Campañas: {resumen['campanas']} · Respuestas: {resumen['respuestas']}")
+    print(f"Tareas: {resumen['tareas']} · Entregas: {resumen['entregas']}")
     print("\nUsuarios de demostración (contraseña: DEMO_PASSWORD):")
     for login in ("admin", "sofia", "rector", "dir.matematica", "docente", "representante", "estudiante",
                   "consejeria", "auditor", "porteria"):

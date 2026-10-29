@@ -1,0 +1,94 @@
+{% extends "layout.html" %}
+{% from "_macros.html" import encabezado, estado, csrf_input %}
+{% block titulo %}Entrega · {{ tarea.titulo }}{% endblock %}
+{% block contenido %}
+<nav aria-label="Ruta"><ol class="breadcrumb pequeno">
+  <li class="breadcrumb-item"><a href="/portal/clases/{{ clase.id }}">{{ clase.materia.nombre }} · {{ salon.nombre }}</a></li>
+  <li class="breadcrumb-item"><a href="/portal/tareas/{{ tarea.id }}{% if actor.rol in ('estudiante', 'representante') %}?alumno={{ alumno.id }}{% endif %}">{{ tarea.titulo }}</a></li>
+  <li class="breadcrumb-item active" aria-current="page">Entrega</li>
+</ol></nav>
+{% set e = estados[entrega.estado] %}
+{% call encabezado(alumno.nombre, tarea.titulo) %}{{ estado(e[0], e[1]) }}{% endcall %}
+
+<div class="row g-4">
+  <div class="col-lg-7">
+    <div class="card mb-4">
+      <div class="card-header">Trabajo entregado</div>
+      <div class="card-body">
+        <p class="pequeno text-secondary">Enviada {{ entrega.entregada_en | local }} · Fecha límite {{ vence | local }}</p>
+        {% if entrega.comentario_alumno %}<blockquote class="retro texto-con-saltos mb-3">{{ entrega.comentario_alumno }}</blockquote>{% endif %}
+        {% if entrega.enlace %}<p class="texto-cortado"><i class="bi bi-link-45deg" aria-hidden="true"></i> <a href="{{ entrega.enlace }}" rel="noopener noreferrer nofollow" target="_blank">{{ entrega.enlace }}</a></p>{% endif %}
+        {% if entrega.archivos %}
+        <ul class="list-group">
+          {% for a in entrega.archivos %}
+          <li class="list-group-item d-flex justify-content-between align-items-center gap-2">
+            <span class="min-w-0"><span class="d-block texto-cortado"><i class="bi {{ {'documento': 'bi-file-earmark-text', 'imagen': 'bi-image', 'video': 'bi-camera-video', 'modelo3d': 'bi-box', 'codigo': 'bi-code-slash'}[a.tipo] }}" aria-hidden="true"></i> {{ a.nombre }}</span>
+              <span class="d-block text-secondary pequeno">{{ a.tamano | tamano }} · {{ "Sin escanear (antivirus pendiente)" if a.escaneo == "sin_escanear" else a.escaneo }}</span></span>
+            <span class="d-flex gap-1 flex-shrink-0">
+              {% if a.mime.startswith("text/") %}<a class="btn btn-sm btn-light" href="/portal/archivos/{{ a.id }}/ver">Ver</a>{% endif %}
+              <a class="btn btn-sm btn-light" href="/portal/archivos/{{ a.id }}">{{ "Abrir" if a.tipo in ("imagen",) or a.mime == "application/pdf" else "Descargar" }}</a>
+            </span>
+          </li>
+          {% endfor %}
+        </ul>
+        {% for a in entrega.archivos if a.tipo == "imagen" %}
+          {% if loop.first %}<div class="galeria mt-3">{% endif %}
+          <a href="/portal/archivos/{{ a.id }}"><img src="/portal/archivos/{{ a.id }}" alt="{{ a.nombre }}" loading="lazy"></a>
+          {% if loop.last %}</div>{% endif %}
+        {% endfor %}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-header">Calificación</div>
+      <div class="card-body">
+        {% if entrega.estado in ("calificada", "devuelta") %}
+          <div class="retro mb-3">
+            {% if entrega.estado == "calificada" %}
+              <div class="h3 mb-0">{{ entrega.nota | nota if entrega.nota is not none else entrega.nivel }}</div>
+              {% if rango %}<div class="pequeno text-secondary mb-2">{{ rango.codigo }} · {{ rango.descripcion }}</div>{% endif %}
+            {% endif %}
+            <p class="mb-1 texto-con-saltos">{{ entrega.comentario_docente or "Sin comentario." }}</p>
+            <div class="pequeno text-secondary">{{ entrega.calificada_en | local }}</div>
+          </div>
+        {% elif not gestiona %}
+          <p class="text-secondary mb-0">Pendiente de revisión por el docente.</p>
+        {% endif %}
+
+        {% if gestiona %}
+          {% if periodo.cerrado %}
+            <div class="alert alert-secondary mb-0">El {{ periodo.nombre }} está cerrado: las calificaciones ya no se pueden modificar.</div>
+          {% else %}
+          <form method="post" action="/portal/entregas/{{ entrega.id }}/calificar">
+            {{ csrf_input(csrf) }}
+            {% if escala and escala.tipo == "cualitativa" %}
+              <fieldset class="mb-3"><legend class="form-label">Nivel de logro</legend>
+                {% for r in escala.rangos %}
+                <div class="form-check"><input class="form-check-input" type="radio" name="nivel" id="nivel-{{ r.codigo }}" value="{{ r.codigo }}" {% if entrega.nivel == r.codigo %}checked{% endif %}>
+                  <label class="form-check-label" for="nivel-{{ r.codigo }}"><strong>{{ r.codigo }}</strong> · {{ r.descripcion }}</label></div>
+                {% endfor %}
+              </fieldset>
+            {% else %}
+              <div class="mb-3">
+                <label class="form-label" for="nota">Nota (1,00 a 10,00)</label>
+                <input class="form-control ancho-corto" id="nota" name="nota" inputmode="decimal" value="{{ entrega.nota | nota }}" pattern="[0-9]{1,2}([,.][0-9]{1,2})?" aria-describedby="ayuda-nota">
+                <div class="form-text" id="ayuda-nota">Se guardan dos decimales, truncados (8,756 queda en 8,75).</div>
+              </div>
+            {% endif %}
+            <div class="mb-3"><label class="form-label" for="comentario">Retroalimentación</label>
+              <textarea class="form-control" id="comentario" name="comentario" rows="4" maxlength="4000">{{ entrega.comentario_docente or "" }}</textarea></div>
+            <div class="d-flex flex-wrap gap-2">
+              <button class="btn btn-primary" type="submit" name="accion" value="calificar">Guardar calificación</button>
+              {% if entrega.estado != "calificada" %}<button class="btn btn-light" type="submit" name="accion" value="devolver">Devolver para corrección</button>{% endif %}
+            </div>
+          </form>
+          {% endif %}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -193,3 +193,43 @@ def puede_ver_alumnos_del_salon(actor: Actor) -> bool:
     """Los compañeros aparecen solo por nombre para estudiantes (decisión de la dirección);
     los representantes no ven el listado del salón."""
     return actor.rol in ("administrador", "coordinacion", "directivo", "docente", "estudiante")
+
+
+# ---------- Clases (salón + materia + docente) ----------
+
+def clases_visibles(db: Session, actor: Actor) -> Select:
+    """Subconsulta con los ids de clases que el actor puede ver."""
+    if actor.rol not in ("administrador", "directivo", "docente", "estudiante", "representante"):
+        # Coordinación ve salones solo para las campañas de autorización, no el trabajo académico
+        return select(SalonMateriaDocente.id).where(false())
+    salones = salones_visibles(db, actor)
+    if actor.rol == "docente":
+        # El docente ve las clases que dicta, aunque sea tutor del salón no ve las de otros docentes
+        return select(SalonMateriaDocente.id).where(SalonMateriaDocente.docente_id == actor.id,
+                                                    SalonMateriaDocente.salon_id.in_(salones))
+    if actor.rol == "directivo" and actor.areas is not None:
+        return (select(SalonMateriaDocente.id).join(Materia, Materia.id == SalonMateriaDocente.materia_id)
+                .where(Materia.area_id.in_(actor.areas), SalonMateriaDocente.salon_id.in_(salones)))
+    return select(SalonMateriaDocente.id).where(SalonMateriaDocente.salon_id.in_(salones))
+
+
+def exigir_clase(db: Session, actor: Actor, clase_id: int) -> SalonMateriaDocente:
+    clase = db.scalar(select(SalonMateriaDocente).where(SalonMateriaDocente.id == clase_id,
+                                                        SalonMateriaDocente.id.in_(clases_visibles(db, actor))))
+    if clase is None:
+        raise SinAlcance()
+    return clase
+
+
+def gestiona_clase(actor: Actor, clase: SalonMateriaDocente) -> bool:
+    """Solo el docente asignado crea tareas, publica y califica en su clase."""
+    return actor.rol == "docente" and clase.docente_id == actor.id
+
+
+def alumnos_propios_en_clase(db: Session, actor: Actor, clase: SalonMateriaDocente) -> list[int]:
+    """Para estudiante y representante: los alumnos cuyo trabajo ven en esa clase."""
+    if actor.rol not in ("estudiante", "representante"):
+        return []
+    return list(db.scalars(select(Matricula.alumno_id).where(
+        Matricula.salon_id == clase.salon_id, Matricula.estado == "activa",
+        Matricula.alumno_id.in_(alumnos_visibles(db, actor)))))

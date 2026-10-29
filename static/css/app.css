@@ -237,3 +237,45 @@ h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 { font-weight: 600; }
 .qr-pequeno svg { width: 132px; height: 132px; display: block; }
 /* El menú lateral cubre toda la altura aunque la página sea larga */
 @media (min-width: 992px) { .sidebar-interior { min-height: 100vh; } }
+
+/* ---------- Fase 3: clases, tareas y entregas ---------- */
+.barra-clase { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: .75rem; margin-bottom: 1.25rem; border-bottom: 1px solid var(--ui-borde); }
+.barra-clase .form-select { width: auto; min-width: 10rem; margin-bottom: .5rem; }
+.pestanas { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: .25rem; }
+.pestanas .nav-link { color: var(--ui-texto-2); white-space: nowrap; padding: .6rem .75rem; font-weight: 500; }
+.pestanas .nav-link.active { color: var(--ui-primario-osc); border-bottom-color: var(--ui-primario); }
+.lista-tareas { display: grid; gap: .6rem; }
+.tarjeta-tarea { display: flex; align-items: center; gap: .9rem; padding: .85rem 1rem; color: inherit; text-decoration: none; transition: box-shadow .15s, transform .15s; }
+.tarjeta-tarea:hover { box-shadow: 0 2px 4px rgba(16, 24, 40, .06), 0 10px 24px rgba(16, 24, 40, .09); color: inherit; }
+.tarjeta-tarea .estado { margin-left: .25rem; }
+.texto-cortado { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.texto-con-saltos { white-space: pre-line; }
+.texto-error { color: var(--ui-error); }
+.borde-arriba { border-top: 1px solid var(--ui-borde); }
+.retro { background: var(--ui-fondo); border-radius: var(--ui-radio-sm); padding: .85rem 1rem; }
+.archivo { padding: .2rem 0; }
+.tabla-matriz { max-height: 70vh; }
+.tabla-matriz th[scope="row"] { position: sticky; left: 0; background: var(--ui-superficie); white-space: nowrap; z-index: 1; }
+.tabla-matriz thead th { position: sticky; top: 0; background: var(--ui-superficie); white-space: nowrap; font-size: .8rem; z-index: 2; }
+.tabla-matriz thead th:first-child { left: 0; z-index: 3; }
+.celda { display: inline-flex; align-items: center; justify-content: center; min-width: 2.6rem; height: 1.9rem; padding: 0 .4rem; border-radius: .45rem; font-size: .8rem; font-weight: 600; text-decoration: none; }
+.celda-ok { background: var(--ui-ok-suave); color: var(--ui-ok); }
+.celda-alerta { background: var(--ui-alerta-suave); color: var(--ui-alerta); }
+.celda-info { background: var(--ui-info-suave); color: var(--ui-info); }
+.celda-neutro { background: #eceff4; color: #3f4859; }
+.celda-error { background: var(--ui-error-suave); color: var(--ui-error); }
+.leyenda { display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; color: var(--ui-texto-2); border-top: 1px solid var(--ui-borde); }
+.leyenda .celda { min-width: 2rem; height: 1.5rem; margin-right: .3rem; }
+.galeria { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: .5rem; }
+.galeria img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: var(--ui-radio-sm); border: 1px solid var(--ui-borde); }
+pre.codigo { padding: 1rem 1.25rem; max-height: 75vh; overflow: auto; font-size: .85rem; background: #0f1724; color: #e6edf6; border-radius: var(--ui-radio); }
+.anillo { width: 56px; height: 56px; flex-shrink: 0; }
+.anillo .fondo { stroke: var(--ui-borde); }
+.anillo .avance { stroke: var(--ui-primario); stroke-linecap: round; transform: rotate(-90deg); transform-origin: 50% 50%; }
+.anillo text { font-size: 10px; font-weight: 700; fill: var(--ui-texto); }
+.tarjeta-salon .proxima { border-top: 1px solid var(--ui-borde); padding-top: .5rem; margin-top: .5rem; }
+.tarjeta-tarea { flex-direction: row; text-align: left; }
+.tabla-matriz td { background: var(--ui-superficie); }
+details.reentrega > summary { cursor: pointer; color: var(--ui-primario-osc); font-weight: 500; list-style: none; }
+details.reentrega > summary::-webkit-details-marker { display: none; }
+details.reentrega[open] > summary { margin-bottom: .75rem; }

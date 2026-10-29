@@ -9,6 +9,7 @@ Convenciones:
 """
 
 from datetime import date, datetime
+from decimal import Decimal
 
 from sqlalchemy import (
     Boolean,
@@ -18,6 +19,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    Numeric,
     String,
     Text,
     UniqueConstraint,
@@ -36,6 +38,11 @@ ESTADOS_ADULTO = ("pendiente", "validado", "rechazado")
 DECISIONES = ("aceptada", "rechazada")
 ESTADOS_SESION = ("pendiente_totp", "enrolar_totp", "completa")
 ESTADOS_MATRICULA = ("activa", "retirada", "finalizada")
+TIPOS_TAREA = ("tarea", "proyecto", "actividad")
+ESTADOS_TAREA = ("borrador", "publicada")
+ESTADOS_ENTREGA = ("entregada", "con_retraso", "calificada", "devuelta")
+ESTADOS_PRORROGA = ("pendiente", "aprobada", "rechazada")
+TIPOS_ARCHIVO = ("documento", "imagen", "video", "modelo3d", "codigo")
 
 
 def _in_list(column: str, values: tuple[str, ...]) -> str:
@@ -249,6 +256,10 @@ class Nivel(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     nombre: Mapped[str] = mapped_column(String(60), unique=True)
     orden: Mapped[int] = mapped_column(Integer)
+    escala_id: Mapped[int | None] = mapped_column(ForeignKey("escalas_calificacion.id", name="fk_niveles_escala"),
+                                                  nullable=True)
+
+    escala: Mapped["EscalaCalificacion | None"] = relationship(lazy="joined")
 
 
 class Grado(Base):
@@ -532,4 +543,183 @@ class BitacoraAuditoria(Base):
     # Obligatorio cuando el administrador consulta datos de un alumno
     motivo: Mapped[str | None] = mapped_column(String(300), nullable=True)
     ip: Mapped[str | None] = mapped_column(String(45), nullable=True)
+    creada_en: Mapped[datetime] = _creado_en()
+
+
+# ===================== Escalas de calificación =====================
+
+class EscalaCalificacion(Base):
+    """Escala por nivel. Los valores iniciales siguen el Instructivo de Evaluación Estudiantil del
+    Ministerio de Educación; la institución debe verificarlos con la normativa vigente."""
+
+    __tablename__ = "escalas_calificacion"
+    __table_args__ = (CheckConstraint("tipo IN ('numerica', 'cualitativa')", name="ck_escala_tipo"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    nombre: Mapped[str] = mapped_column(String(80), unique=True)
+    tipo: Mapped[str] = mapped_column(String(12))
+    minimo_aprobacion: Mapped[Decimal | None] = mapped_column(Numeric(4, 2), nullable=True)
+    fuente: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    rangos: Mapped[list["RangoEscala"]] = relationship(lazy="selectin", order_by="RangoEscala.orden")
+
+
+class RangoEscala(Base):
+    """Equivalencia cualitativa. En escalas numéricas cubre el intervalo [minimo, maximo]."""
+
+    __tablename__ = "rangos_escala"
+    __table_args__ = (UniqueConstraint("escala_id", "codigo", name="uq_rango_codigo"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    escala_id: Mapped[int] = mapped_column(ForeignKey("escalas_calificacion.id"), index=True)
+    codigo: Mapped[str] = mapped_column(String(4))
+    descripcion: Mapped[str] = mapped_column(String(120))
+    minimo: Mapped[Decimal | None] = mapped_column(Numeric(4, 2), nullable=True)
+    maximo: Mapped[Decimal | None] = mapped_column(Numeric(4, 2), nullable=True)
+    orden: Mapped[int] = mapped_column(Integer)
+
+
+# ===================== Clases: publicaciones, rúbricas, tareas y entregas =====================
+# Una "clase" es una fila de salon_materia_docente: un salón, una materia y su docente.
+
+class Publicacion(Base):
+    __tablename__ = "publicaciones"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    clase_id: Mapped[int] = mapped_column(ForeignKey("salon_materia_docente.id"), index=True)
+    autor_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"))
+    titulo: Mapped[str] = mapped_column(String(160))
+    cuerpo: Mapped[str] = mapped_column(Text)
+    creada_en: Mapped[datetime] = _creado_en()
+
+    autor: Mapped[Usuario] = relationship(lazy="joined")
+
+
+class Rubrica(Base):
+    __tablename__ = "rubricas"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    materia_id: Mapped[int] = mapped_column(ForeignKey("materias.id"), index=True)
+    autor_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"))
+    titulo: Mapped[str] = mapped_column(String(160))
+    # Compartida: visible para los demás docentes de la misma materia
+    compartida: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
+    creada_en: Mapped[datetime] = _creado_en()
+
+    criterios: Mapped[list["CriterioRubrica"]] = relationship(lazy="selectin", order_by="CriterioRubrica.orden",
+                                                             cascade="all, delete-orphan")
+    autor: Mapped[Usuario] = relationship(lazy="joined")
+
+
+class CriterioRubrica(Base):
+    __tablename__ = "criterios_rubrica"
+    __table_args__ = (CheckConstraint("puntos > 0", name="ck_criterio_puntos"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    rubrica_id: Mapped[int] = mapped_column(ForeignKey("rubricas.id"), index=True)
+    descripcion: Mapped[str] = mapped_column(String(300))
+    puntos: Mapped[Decimal] = mapped_column(Numeric(5, 2))
+    orden: Mapped[int] = mapped_column(Integer)
+
+
+class Tarea(Base):
+    __tablename__ = "tareas"
+    __table_args__ = (
+        CheckConstraint(_in_list("tipo", TIPOS_TAREA), name="ck_tarea_tipo"),
+        CheckConstraint(_in_list("estado", ESTADOS_TAREA), name="ck_tarea_estado"),
+        CheckConstraint("peso BETWEEN 1 AND 100", name="ck_tarea_peso"),
+        Index("ix_tarea_clase_estado", "clase_id", "estado"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    clase_id: Mapped[int] = mapped_column(ForeignKey("salon_materia_docente.id"))
+    periodo_id: Mapped[int] = mapped_column(ForeignKey("periodos_calificacion.id"), index=True)
+    titulo: Mapped[str] = mapped_column(String(160))
+    instrucciones: Mapped[str] = mapped_column(Text)
+    tipo: Mapped[str] = mapped_column(String(10))
+    fecha_entrega: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    peso: Mapped[int] = mapped_column(Integer, default=1, server_default=text("1"))
+    # Tipos de archivo admitidos, separados por coma (ver TIPOS_ARCHIVO); vacío = solo enlace o texto
+    tipos_permitidos: Mapped[str] = mapped_column(String(80), default="", server_default=text("''"))
+    admite_enlace: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
+    admite_prorroga: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
+    estado: Mapped[str] = mapped_column(String(10), default="borrador", server_default=text("'borrador'"))
+    rubrica_id: Mapped[int | None] = mapped_column(ForeignKey("rubricas.id"), nullable=True)
+    creada_por: Mapped[int] = mapped_column(ForeignKey("usuarios.id"))
+    creada_en: Mapped[datetime] = _creado_en()
+    publicada_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    clase: Mapped[SalonMateriaDocente] = relationship(lazy="joined")
+    rubrica: Mapped[Rubrica | None] = relationship(lazy="joined")
+
+    @property
+    def lista_tipos(self) -> list[str]:
+        return [t for t in self.tipos_permitidos.split(",") if t]
+
+
+class Entrega(Base):
+    """Una por alumno y tarea. "No entregada" es la ausencia de fila."""
+
+    __tablename__ = "entregas"
+    __table_args__ = (
+        UniqueConstraint("tarea_id", "alumno_id", name="uq_entrega_tarea_alumno"),
+        CheckConstraint(_in_list("estado", ESTADOS_ENTREGA), name="ck_entrega_estado"),
+        CheckConstraint("nota IS NULL OR (nota >= 0 AND nota <= 10)", name="ck_entrega_nota"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tarea_id: Mapped[int] = mapped_column(ForeignKey("tareas.id"), index=True)
+    alumno_id: Mapped[int] = mapped_column(ForeignKey("alumnos.id"), index=True)
+    estado: Mapped[str] = mapped_column(String(12))
+    comentario_alumno: Mapped[str | None] = mapped_column(Text, nullable=True)
+    enlace: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    entregada_en: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    nota: Mapped[Decimal | None] = mapped_column(Numeric(4, 2), nullable=True)
+    nivel: Mapped[str | None] = mapped_column(String(4), nullable=True)
+    comentario_docente: Mapped[str | None] = mapped_column(Text, nullable=True)
+    calificada_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"), nullable=True)
+    calificada_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    archivos: Mapped[list["ArchivoEntrega"]] = relationship(lazy="selectin", order_by="ArchivoEntrega.id")
+
+
+class ArchivoEntrega(Base):
+    """Metadatos del archivo. El contenido vive en el almacenamiento con un nombre aleatorio (`clave`)."""
+
+    __tablename__ = "archivos_entrega"
+    __table_args__ = (
+        CheckConstraint(_in_list("tipo", TIPOS_ARCHIVO), name="ck_archivo_tipo"),
+        CheckConstraint("escaneo IN ('sin_escanear', 'limpio', 'rechazado')", name="ck_archivo_escaneo"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    entrega_id: Mapped[int] = mapped_column(ForeignKey("entregas.id"), index=True)
+    nombre: Mapped[str] = mapped_column(String(160))
+    clave: Mapped[str] = mapped_column(String(64), unique=True)
+    tipo: Mapped[str] = mapped_column(String(10))
+    mime: Mapped[str] = mapped_column(String(100))
+    tamano: Mapped[int] = mapped_column(Integer)
+    sha256: Mapped[str] = mapped_column(String(64))
+    escaneo: Mapped[str] = mapped_column(String(12), default="sin_escanear", server_default=text("'sin_escanear'"))
+    creado_en: Mapped[datetime] = _creado_en()
+
+
+class Prorroga(Base):
+    __tablename__ = "prorrogas"
+    __table_args__ = (
+        CheckConstraint(_in_list("estado", ESTADOS_PRORROGA), name="ck_prorroga_estado"),
+        # Una sola solicitud pendiente por alumno y tarea
+        Index("uq_prorroga_pendiente", "tarea_id", "alumno_id", unique=True,
+              postgresql_where=text("estado = 'pendiente'"), sqlite_where=text("estado = 'pendiente'")),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tarea_id: Mapped[int] = mapped_column(ForeignKey("tareas.id"), index=True)
+    alumno_id: Mapped[int] = mapped_column(ForeignKey("alumnos.id"))
+    solicitada_por: Mapped[int] = mapped_column(ForeignKey("usuarios.id"))
+    motivo: Mapped[str] = mapped_column(String(500))
+    nueva_fecha: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    estado: Mapped[str] = mapped_column(String(10), default="pendiente", server_default=text("'pendiente'"))
+    resuelta_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"), nullable=True)
+    resuelta_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     creada_en: Mapped[datetime] = _creado_en()

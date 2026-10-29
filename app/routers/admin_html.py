@@ -24,11 +24,13 @@ from app.models import (
     Campana,
     CampanaSalon,
     EnvioSaliente,
+    EscalaCalificacion,
     Familia,
     FamiliaAlumno,
     Grado,
     Materia,
     Matricula,
+    Nivel,
     Paralelo,
     PeriodoCalificacion,
     Persona,
@@ -105,6 +107,8 @@ def estructura(w: Web = Depends(requiere("estructura.gestionar"))):
         "paralelos": db.scalars(select(Paralelo).order_by(Paralelo.nombre)).all(),
         "areas": db.scalars(select(Area).order_by(Area.nombre)).all(),
         "materias": db.scalars(select(Materia).order_by(Materia.nombre)).all(),
+        "escalas": db.scalars(select(EscalaCalificacion).order_by(EscalaCalificacion.nombre)).all(),
+        "niveles": db.scalars(select(Nivel).order_by(Nivel.orden)).all(),
     }, seccion="estructura")
 
 

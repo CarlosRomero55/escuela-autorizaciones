@@ -1,0 +1,181 @@
+{% extends "layout.html" %}
+{% from "_macros.html" import encabezado, vacio, estado, csrf_input %}
+{% block titulo %}{{ clase.materia.nombre }} · {{ salon.nombre }}{% endblock %}
+{% block contenido %}
+{% set sub = salon.nombre ~ " · " ~ (clase.docente.nombre if clase.docente else "Docente por asignar") %}
+{% call encabezado(clase.materia.nombre, sub) %}
+  {% if gestiona %}<a class="btn btn-primary" href="/portal/clases/{{ clase.id }}/tareas/nueva"><i class="bi bi-plus-lg" aria-hidden="true"></i> Nueva tarea</a>{% endif %}
+  {% if vista == "matriz" %}<a class="btn btn-light" href="/portal/clases/{{ clase.id }}/matriz.csv{% if periodo %}?periodo={{ periodo.id }}{% endif %}"><i class="bi bi-download" aria-hidden="true"></i> Exportar CSV</a>{% endif %}
+{% endcall %}
+
+{% set q_alumno = "&alumno=" ~ alumno_id if alumno_id else "" %}
+{% set q_periodo = "&periodo=" ~ periodo.id if periodo else "" %}
+<div class="barra-clase">
+  <nav class="nav nav-underline pestanas" aria-label="Secciones de la clase">
+    <a class="nav-link{% if vista == 'tareas' %} active{% endif %}" {% if vista == 'tareas' %}aria-current="page"{% endif %} href="?vista=tareas{{ q_periodo }}{{ q_alumno }}"><i class="bi bi-journal-text" aria-hidden="true"></i> Tareas</a>
+    <a class="nav-link{% if vista == 'muro' %} active{% endif %}" {% if vista == 'muro' %}aria-current="page"{% endif %} href="?vista=muro{{ q_alumno }}"><i class="bi bi-megaphone" aria-hidden="true"></i> Muro</a>
+    {% if ve_todo %}<a class="nav-link{% if vista == 'matriz' %} active{% endif %}" {% if vista == 'matriz' %}aria-current="page"{% endif %} href="?vista=matriz{{ q_periodo }}"><i class="bi bi-grid-3x3" aria-hidden="true"></i> Cumplimiento</a>{% endif %}
+    <a class="nav-link{% if vista == 'calificaciones' %} active{% endif %}" {% if vista == 'calificaciones' %}aria-current="page"{% endif %} href="?vista=calificaciones{{ q_alumno }}"><i class="bi bi-award" aria-hidden="true"></i> Calificaciones</a>
+  </nav>
+  <form class="d-flex flex-wrap gap-2" method="get">
+    <input type="hidden" name="vista" value="{{ vista }}">
+    {% if propios | length > 1 %}
+      <label class="visually-hidden" for="sel-alumno">Alumno</label>
+      <select class="form-select" id="sel-alumno" name="alumno" data-autosubmit>
+        {% for a in propios %}<option value="{{ a.id }}" {% if a.id == alumno_id %}selected{% endif %}>{{ a.persona.nombres }}</option>{% endfor %}
+      </select>
+    {% elif alumno_id %}<input type="hidden" name="alumno" value="{{ alumno_id }}">{% endif %}
+    {% if vista in ("tareas", "matriz") and periodos %}
+      <label class="visually-hidden" for="sel-periodo">Trimestre</label>
+      <select class="form-select" id="sel-periodo" name="periodo" data-autosubmit>
+        {% for p in periodos %}<option value="{{ p.id }}" {% if periodo and p.id == periodo.id %}selected{% endif %}>{{ p.nombre }}{% if p.cerrado %} (cerrado){% endif %}</option>{% endfor %}
+      </select>
+    {% endif %}
+    <noscript><button class="btn btn-light" type="submit">Ver</button></noscript>
+  </form>
+</div>
+
+{% if vista == "tareas" %}
+  {% if filas %}
+  <div class="lista-tareas">
+    {% for f in filas %}
+      {% set t = f.tarea %}
+      <a class="card tarjeta-tarea" href="/portal/tareas/{{ t.id }}{% if alumno_id %}?alumno={{ alumno_id }}{% endif %}">
+        <span class="icono-circulo pastel-{{ {'tarea': 'azul', 'proyecto': 'morado', 'actividad': 'verde'}[t.tipo] }}"><i class="bi {{ {'tarea': 'bi-journal-text', 'proyecto': 'bi-kanban', 'actividad': 'bi-lightning'}[t.tipo] }}" aria-hidden="true"></i></span>
+        <span class="flex-grow-1 min-w-0">
+          <span class="d-block fw-semibold texto-cortado">{{ t.titulo }}</span>
+          <span class="d-block text-secondary pequeno">
+            {{ t.tipo | capitalize }} · Peso {{ t.peso }} ·
+            {% if alumno_id %}Vence {{ f.vence | local }}{% if f.vence != t.fecha_entrega %} (con prórroga){% endif %}
+            {% else %}Vence {{ t.fecha_entrega | local }}{% endif %}
+          </span>
+        </span>
+        <span class="text-end flex-shrink-0">
+          {% if t.estado == "borrador" %}{{ estado("Borrador", "neutro", "bi-pencil") }}
+          {% elif alumno_id %}
+            {% set e = estados[f.estado] %}{{ estado(e[0], e[1]) }}
+            {% if f.entrega and f.entrega.estado == "calificada" %}<span class="d-block fw-semibold mt-1">{{ f.entrega.nota | nota if f.entrega.nota is not none else f.entrega.nivel }}</span>{% endif %}
+          {% else %}
+            <span class="d-block pequeno">{{ f.entregadas }} / {{ total_alumnos }} entregas</span>
+            {% if f.por_calificar %}{{ estado(f.por_calificar ~ " por calificar", "alerta") }}{% endif %}
+            {% if f.prorrogas %}{{ estado(f.prorrogas ~ " prórroga" ~ ("s" if f.prorrogas != 1 else ""), "info") }}{% endif %}
+          {% endif %}
+        </span>
+      </a>
+    {% endfor %}
+  </div>
+  {% else %}
+    <div class="card">{{ vacio("bi-journal", "No hay tareas en este trimestre." ~ (" Cree la primera con «Nueva tarea»." if gestiona else "")) }}</div>
+  {% endif %}
+
+{% elif vista == "muro" %}
+  <div class="row g-4">
+    {% if gestiona %}
+    <div class="col-lg-5 order-lg-2">
+      <div class="card">
+        <div class="card-header">Nueva publicación</div>
+        <form class="card-body" method="post" action="/portal/clases/{{ clase.id }}/publicaciones">
+          {{ csrf_input(csrf) }}
+          <div class="mb-3"><label class="form-label" for="pub-titulo">Título</label><input class="form-control" id="pub-titulo" name="titulo" maxlength="160" required></div>
+          <div class="mb-3"><label class="form-label" for="pub-cuerpo">Mensaje</label><textarea class="form-control" id="pub-cuerpo" name="cuerpo" rows="4" maxlength="4000" required></textarea></div>
+          <button class="btn btn-primary" type="submit">Publicar</button>
+          <p class="text-secondary pequeno mt-2 mb-0">Lo ven los estudiantes del salón y sus representantes.</p>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+    <div class="{{ 'col-lg-7' if gestiona else 'col-12 ancho-lectura' }}">
+      {% for p in publicaciones %}
+        <article class="card mb-3">
+          <div class="card-body">
+            <div class="d-flex align-items-center gap-2 mb-2">
+              <span class="avatar">{{ p.autor.persona.nombres[:1] }}{{ p.autor.persona.apellidos[:1] }}</span>
+              <span><span class="d-block fw-semibold pequeno">{{ p.autor.nombre }}</span><span class="d-block text-secondary pequeno">{{ p.creada_en | hace }}</span></span>
+            </div>
+            <h2 class="h6 mb-1">{{ p.titulo }}</h2>
+            <p class="mb-0 texto-con-saltos">{{ p.cuerpo }}</p>
+          </div>
+        </article>
+      {% else %}
+        <div class="card">{{ vacio("bi-megaphone", "Todavía no hay publicaciones en el muro.") }}</div>
+      {% endfor %}
+    </div>
+  </div>
+
+{% elif vista == "matriz" %}
+  {% if tareas and alumnos %}
+  <div class="card">
+    <div class="table-responsive tabla-matriz">
+      <table class="table table-sm align-middle mb-0">
+        <caption class="visually-hidden">Cumplimiento de tareas por alumno</caption>
+        <thead><tr><th scope="col">Alumno</th>{% for t in tareas %}<th scope="col" class="text-center"><a href="/portal/tareas/{{ t.id }}" title="{{ t.titulo }}">{{ t.titulo | truncate(18, true, "…") }}</a></th>{% endfor %}</tr></thead>
+        <tbody>
+          {% for a in alumnos %}
+          <tr>
+            <th scope="row" class="fw-normal">{{ a.nombre }}</th>
+            {% for t in tareas %}
+              {% set c = celdas[(a.id, t.id)] %}{% set e = estados[c.estado] %}
+              <td class="text-center">
+                {% if c.entrega %}<a class="celda celda-{{ e[1] }}" href="/portal/entregas/{{ c.entrega.id }}" title="{{ e[0] }}">{{ c.entrega.nota | nota if c.entrega.nota is not none else (c.entrega.nivel or e[0][:1]) }}</a>
+                {% else %}<span class="celda celda-{{ e[1] }}" title="{{ e[0] }}">{{ "—" if c.estado == "pendiente" else "✕" }}</span>{% endif %}
+              </td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="card-body leyenda pequeno">
+      <span><span class="celda celda-ok">E</span> Entregada</span>
+      <span><span class="celda celda-alerta">E</span> Con retraso o devuelta</span>
+      <span><span class="celda celda-info">8,50</span> Calificada</span>
+      <span><span class="celda celda-neutro">—</span> Pendiente</span>
+      <span><span class="celda celda-error">✕</span> No entregada</span>
+    </div>
+  </div>
+  {% else %}<div class="card">{{ vacio("bi-grid-3x3", "No hay tareas publicadas en este trimestre.") }}</div>{% endif %}
+
+{% else %}
+  {% if escala %}
+  <p class="text-secondary pequeno">Escala: {{ escala.nombre }}.
+    {% if escala.tipo == "numerica" %}Promedio ponderado por el peso de cada tarea, truncado a dos decimales{% if escala.minimo_aprobacion %}; mínimo para aprobar {{ escala.minimo_aprobacion | nota }}{% endif %}.{% else %}Calificación cualitativa, sin promedios numéricos.{% endif %}
+  </p>
+  {% endif %}
+  {% if alumnos %}
+  <div class="card mb-4">
+    <div class="table-responsive">
+      <table class="table tabla-tarjetas mb-0">
+        <thead><tr><th scope="col">Alumno</th>{% for p in periodos %}<th scope="col">{{ p.nombre }}</th>{% endfor %}</tr></thead>
+        <tbody>
+          {% for a in alumnos %}
+          <tr>
+            <td data-label="Alumno">{{ a.nombre }}</td>
+            {% for p in periodos %}
+              {% set valor, rango = promedios[(a.id, p.id)] %}
+              <td data-label="{{ p.nombre }}">
+                {% if valor is not none %}<span class="fw-semibold{% if escala and escala.minimo_aprobacion and valor < escala.minimo_aprobacion %} texto-error{% endif %}">{{ valor | nota }}</span>{% if rango %} <span class="text-secondary pequeno" title="{{ rango.descripcion }}">{{ rango.codigo }}</span>{% endif %}
+                {% else %}<span class="text-secondary">—</span>{% endif %}
+              </td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% else %}<div class="card mb-4">{{ vacio("bi-award", "No hay alumnos en esta clase.") }}</div>{% endif %}
+
+  {% if calificadas is defined %}
+  <h2 class="h5 mb-3">Trabajos revisados</h2>
+  <div class="lista-tareas">
+    {% for entrega, tarea in calificadas %}
+      <a class="card tarjeta-tarea" href="/portal/entregas/{{ entrega.id }}">
+        <span class="flex-grow-1 min-w-0"><span class="d-block fw-semibold texto-cortado">{{ tarea.titulo }}</span>
+          <span class="d-block text-secondary pequeno texto-cortado">{{ entrega.comentario_docente or "Sin comentario" }}</span></span>
+        <span class="flex-shrink-0 text-end">{% if entrega.estado == "devuelta" %}{{ estado("Devuelta", "alerta") }}{% else %}<span class="fw-semibold">{{ entrega.nota | nota if entrega.nota is not none else entrega.nivel }}</span>{% endif %}</span>
+      </a>
+    {% else %}<div class="card">{{ vacio("bi-inbox", "Todavía no hay trabajos revisados.") }}</div>{% endfor %}
+  </div>
+  {% endif %}
+{% endif %}
+{% endblock %}

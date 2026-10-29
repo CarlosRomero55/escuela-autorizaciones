@@ -46,18 +46,22 @@
     {{ indicador("bi-easel", "azul", asignaciones | length, "clases asignadas") }}
     {{ indicador("bi-star", "morado", tutorias | length, "salones como tutor/a") }}
     {{ indicador("bi-mortarboard", "verde", conteos.values() | sum, "alumnos en sus salones") }}
-    {{ indicador("bi-journal-check", "ambar", "—", "tareas (llega en la Fase 3)") }}
+    {{ indicador("bi-journal-check", "ambar", por_calificar.values() | sum, "entregas por calificar") }}
   </div>
+  {% if prorrogas %}<div class="alert alert-info d-flex align-items-center gap-2"><i class="bi bi-clock-history" aria-hidden="true"></i> Tiene {{ prorrogas }} solicitud{{ "es" if prorrogas != 1 }} de prórroga por resolver; aparecen en cada tarea.</div>{% endif %}
   <h2 class="h5 mb-3">Mis clases</h2>
   {% if asignaciones %}
   <div class="row g-3">
     {% for asignacion, salon in asignaciones %}
       <div class="col-sm-6 col-xl-4">
-        <a class="card tarjeta-salon" href="/portal/salones/{{ salon.id }}">
+        <a class="card tarjeta-salon" href="/portal/clases/{{ asignacion.id }}">
           <div class="franja franja-{{ asignacion.materia_id % 6 }}">{{ asignacion.materia.nombre }}</div>
-          <div class="card-body">
-            <div class="fw-semibold">{{ salon.nombre }}</div>
-            <div class="text-secondary pequeno">{{ conteos.get(salon.id, 0) }} alumnos{% if salon.tutor_id == usuario.id %} · Usted es tutor/a{% endif %}</div>
+          <div class="card-body d-flex justify-content-between align-items-start gap-2">
+            <span>
+              <span class="d-block fw-semibold">{{ salon.nombre }}</span>
+              <span class="d-block text-secondary pequeno">{{ conteos.get(salon.id, 0) }} alumnos{% if salon.tutor_id == usuario.id %} · Usted es tutor/a{% endif %}</span>
+            </span>
+            {% if por_calificar.get(asignacion.id) %}{{ estado(por_calificar[asignacion.id] ~ " por calificar", "alerta") }}{% endif %}
           </div>
         </a>
       </div>
@@ -104,35 +108,65 @@
   <div class="row g-3 mb-4">
     {{ indicador("bi-easel", "azul", salon.nombre, "mi salón", "/portal/salones/" ~ salon.id) }}
     {{ indicador("bi-book", "morado", materias | length, "materias") }}
-    {{ indicador("bi-person-heart", "verde", salon.tutor.persona.nombres if salon.tutor else "—", "tutor/a") }}
-    {{ indicador("bi-journal-check", "ambar", "—", "tareas (llega en la Fase 3)") }}
+    {{ indicador("bi-hourglass-split", "ambar", resumen.pendientes | length, "tareas pendientes") }}
+    <div class="col-6 col-xl-3"><div class="card indicador">
+      <svg class="anillo" viewBox="0 0 56 56" role="img" aria-label="{{ resumen.porcentaje }} % de tareas entregadas">
+        <circle class="fondo" cx="28" cy="28" r="24" fill="none" stroke-width="6"/>
+        <circle class="avance" cx="28" cy="28" r="24" fill="none" stroke-width="6" stroke-dasharray="{{ (resumen.porcentaje * 1.508) | round(1) }} 150.8"/>
+        <text x="28" y="31.5" text-anchor="middle">{{ resumen.porcentaje }}%</text>
+      </svg>
+      <span><span class="cifra d-block">{{ resumen.hechas }}/{{ resumen.total }}</span><span class="etiqueta">tareas entregadas</span></span>
+    </div></div>
   </div>
-  <h2 class="h5 mb-3">Mis materias</h2>
-  <div class="row g-3">
-    {% for m in materias %}
-      <div class="col-sm-6 col-xl-4">
-        <div class="card tarjeta-salon">
-          <div class="franja franja-{{ m.materia_id % 6 }}">{{ m.materia.nombre }}</div>
-          <div class="card-body">
-            <div class="text-secondary pequeno">{{ m.docente.nombre if m.docente else "Docente por asignar" }}</div>
-            <div class="pequeno mt-1">Sin tareas publicadas</div>
+  <div class="row g-4">
+    <div class="col-xl-8">
+      <h2 class="h5 mb-3">Mis materias{% if periodo %} <span class="text-secondary fw-normal pequeno">· promedio del {{ periodo.nombre }}</span>{% endif %}</h2>
+      <div class="row g-3">
+        {% for m in materias %}
+          <div class="col-sm-6">
+            <a class="card tarjeta-salon" href="/portal/clases/{{ m.id }}">
+              <div class="franja franja-{{ m.materia_id % 6 }} d-flex justify-content-between"><span>{{ m.materia.nombre }}</span>{% if promedios.get(m.id) is not none %}<span>{{ promedios[m.id] | nota }}</span>{% endif %}</div>
+              <div class="card-body">
+                <div class="text-secondary pequeno">{{ m.docente.nombre if m.docente else "Docente por asignar" }}</div>
+                {% set f = proxima.get(m.id) %}
+                <div class="proxima pequeno">{% if f %}<span class="fw-semibold">{{ f.tarea.titulo }}</span> · {{ "venció" if f.estado == "atrasada" else "vence" }} {{ f.vence | local("%d/%m %H:%M") }}{% else %}<span class="text-secondary">Al día</span>{% endif %}</div>
+              </div>
+            </a>
           </div>
-        </div>
+        {% endfor %}
       </div>
-    {% endfor %}
+    </div>
+    <div class="col-xl-4">
+      <div class="card">
+        <div class="card-header">Por hacer</div>
+        <ul class="list-group list-group-flush">
+          {% for f in resumen.pendientes[:8] %}
+            {% set e = estados[f.estado] %}
+            <li class="list-group-item"><a class="d-flex justify-content-between align-items-center gap-2 text-reset text-decoration-none" href="/portal/tareas/{{ f.tarea.id }}">
+              <span class="min-w-0"><span class="d-block texto-cortado fw-semibold pequeno">{{ f.tarea.titulo }}</span><span class="d-block text-secondary pequeno">{{ f.tarea.clase.materia.nombre }} · {{ f.vence | local("%d/%m %H:%M") }}</span></span>
+              {{ estado(e[0], e[1]) }}</a></li>
+          {% else %}<li class="list-group-item">{{ vacio("bi-check2-circle", "No tiene tareas pendientes.") }}</li>{% endfor %}
+        </ul>
+      </div>
+    </div>
   </div>
   {% else %}<div class="card">{{ vacio("bi-easel", "No tiene una matrícula activa en el año lectivo actual.") }}</div>{% endif %}
 
 {% elif actor.rol == "representante" %}
   <h2 class="h5 mb-3">Mis representados</h2>
   <div class="row g-3">
-    {% for alumno, parentesco, salon in representados %}
+    {% for alumno, parentesco, salon, resumen in representados %}
       <div class="col-sm-6 col-xl-4">
         <a class="card tarjeta-salon" href="/portal/alumnos/{{ alumno.id }}">
           <div class="franja franja-{{ alumno.id % 6 }}">{{ alumno.persona.nombres }}</div>
           <div class="card-body">
             <div class="fw-semibold">{{ alumno.nombre }}</div>
             <div class="text-secondary pequeno">{{ salon.nombre if salon else "Sin salón" }} · Usted es {{ parentesco }}</div>
+            <div class="proxima pequeno d-flex justify-content-between">
+              <span>{% if resumen.total %}{{ resumen.hechas }} de {{ resumen.total }} tareas entregadas{% else %}<span class="text-secondary">Sin tareas publicadas</span>{% endif %}</span>
+              {% set atrasadas = resumen.pendientes | selectattr("estado", "equalto", "atrasada") | list | length %}
+              {% if atrasadas %}{{ estado(atrasadas ~ " sin entregar", "error") }}{% elif resumen.pendientes %}{{ estado(resumen.pendientes | length ~ " pendiente" ~ ("s" if resumen.pendientes | length != 1 else ""), "neutro") }}{% endif %}
+            </div>
           </div>
         </a>
       </div>
@@ -140,7 +174,7 @@
       <div class="col-12"><div class="card">{{ vacio("bi-people", "La escuela todavía no ha vinculado a sus representados. Comuníquese con la secretaría.") }}</div></div>
     {% endfor %}
   </div>
-  <p class="text-secondary pequeno mt-3">Calificaciones, tareas y asistencia llegarán en las próximas fases.</p>
+  <p class="text-secondary pequeno mt-3">Abra la ficha de cada representado para ver sus clases, tareas y calificaciones. La asistencia llega en una próxima fase.</p>
 
 {% else %}
   <div class="card ancho-lectura"><div class="card-body">

@@ -80,6 +80,20 @@ Protección de los campos sensibles:
 
 Decisión deliberada: `alumnos.salon_id` repite el salón de la matrícula activa. Portería y autorizaciones lo consultan en cada petición, y así no recorren el historial de matrículas. Lo mantiene `services._matricular`.
 
+## Modelo de datos (Fase 3)
+
+- **Clase** = `SalonMateriaDocente` (salón + materia + docente). Todo el trabajo académico cuelga de ella.
+- `EscalaCalificacion` y `RangoEscala`, asignadas por nivel: numérica (1,00–10,00, mínimo 7,00) o cualitativa (Preparatoria: A, EP, I).
+- `Publicacion` (muro de la clase), `Rubrica` y `CriterioRubrica` (propias o compartidas por materia).
+- `Tarea`: tipo, trimestre, fecha de entrega, peso en el promedio, tipos de archivo admitidos, enlace sí/no, prórroga sí/no, borrador o publicada.
+- `Entrega` (una por alumno y tarea): entregada, con retraso, calificada o devuelta para corrección; nota con dos decimales o nivel cualitativo.
+- `ArchivoEntrega`: nombre visible, clave aleatoria en el almacén, tipo detectado por contenido, tamaño, SHA-256 y estado de escaneo (`sin_escanear` hasta integrar ClamAV).
+- `Prorroga`: una solicitud pendiente a la vez por alumno y tarea; la fecha efectiva es la mayor prórroga aprobada.
+
+Reglas: no se crean tareas ni se califica en un trimestre cerrado; el promedio es ponderado por peso y **truncado** a dos decimales; una entrega calificada no se reemplaza (el docente puede devolverla).
+
+Pendiente para producción: almacenamiento R2/S3 con URLs firmadas (el adaptador `Almacen` ya separa la interfaz), antivirus, visor 3D, transcodificación de video y detección de plagio.
+
 ## Flujo de acceso
 
 ```mermaid
@@ -109,6 +123,6 @@ sequenceDiagram
 | Fase | Contenido | Estado |
 |---|---|---|
 | 1 | Base, layout y sistema de diseño, roles, TOTP, sesiones y dispositivos, usuarios, estructura académica, matrículas | Hecha |
-| 3 | Portal docente y estudiante: tareas, entregas, rúbricas, calificaciones | Siguiente |
-| 6 | Autorizaciones y recogida | Backend y página de familias hechos; falta la PWA de portería |
+| 3 | Clases, tareas, entregas, prórrogas, rúbricas, calificaciones | Hecha |
+| 6 | Autorizaciones y recogida | Backend y página de familias hechos; falta la PWA de portería (siguiente) |
 | 2, 4, 5, 7–11 | Sitio público, portal del representante, boletines, bienestar, directivos, evaluaciones, operación | Diseño documentado |

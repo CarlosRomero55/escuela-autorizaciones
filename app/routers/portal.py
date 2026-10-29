@@ -7,7 +7,7 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import security, services, sesiones
+from app import academico, security, services, sesiones
 from app.audit import registrar
 from app.auth import ErrorAcceso, confirmar_enrolamiento, preparar_enrolamiento
 from app.models import (
@@ -17,19 +17,23 @@ from app.models import (
     Area,
     Campana,
     DispositivoUsuario,
+    Entrega,
     Incidente,
     Materia,
     Matricula,
+    Prorroga,
     RepresentanteAlumno,
     Salon,
     SalonMateriaDocente,
     Sesion,
+    Tarea,
     Usuario,
 )
 from app.permisos import (
     SinAlcance,
     alumnos_visibles,
     anio_activo,
+    clases_visibles,
     exigir_alumno,
     exigir_salon,
     puede_ver_alumnos_del_salon,
@@ -88,7 +92,15 @@ def inicio(w: Web = Depends(web)):
         ).all()
         tutorias = db.scalars(select(Salon).where(Salon.tutor_id == actor.id, Salon.id.in_(salones_visibles(db, actor)))).all()
         conteos = {t["salon"].id: t["alumnos"] for t in _tarjetas_salon(db, salones_visibles(db, actor))}
-        datos.update(asignaciones=asignaciones, tutorias=tutorias, conteos=conteos)
+        ids = [a.id for a, _ in asignaciones]
+        por_calificar = dict(db.execute(
+            select(Tarea.clase_id, func.count(Entrega.id)).join(Entrega, Entrega.tarea_id == Tarea.id)
+            .where(Tarea.clase_id.in_(ids), Entrega.estado.in_(("entregada", "con_retraso")))
+            .group_by(Tarea.clase_id)).all())
+        prorrogas = db.scalar(select(func.count(Prorroga.id)).join(Tarea, Tarea.id == Prorroga.tarea_id)
+                              .where(Tarea.clase_id.in_(ids), Prorroga.estado == "pendiente"))
+        datos.update(asignaciones=asignaciones, tutorias=tutorias, conteos=conteos, por_calificar=por_calificar,
+                     prorrogas=prorrogas)
     elif actor.rol == "directivo":
         tarjetas = _tarjetas_salon(db, salones_visibles(db, actor))
         # Primero se cuenta por id y luego se cargan los usuarios: agrupar por la entidad completa
@@ -114,7 +126,16 @@ def inicio(w: Web = Depends(web)):
             materias = db.scalars(select(SalonMateriaDocente).where(SalonMateriaDocente.salon_id == salon.id)
                                   .join(Materia, Materia.id == SalonMateriaDocente.materia_id)
                                   .order_by(Materia.nombre)).all()
-        datos.update(salon=salon, materias=materias)
+        alumno = db.scalar(select(Alumno).where(Alumno.persona_id == actor.usuario.persona_id))
+        situacion = academico.situacion_alumno(db, alumno) if alumno else []
+        resumen = academico.resumen_situacion(situacion)
+        proxima = {}
+        for fila in resumen["pendientes"]:
+            proxima.setdefault(fila["tarea"].clase_id, fila)
+        periodo = academico.periodo_actual(db)
+        promedios = {m.id: academico.promedio(db, m, alumno.id, periodo.id) for m in materias} if alumno and periodo else {}
+        datos.update(salon=salon, materias=materias, resumen=resumen, proxima=proxima, promedios=promedios,
+                     periodo=periodo, estados=academico.ETIQUETAS_ESTADO)
     elif actor.rol == "representante":
         representados = db.execute(
             select(Alumno, RepresentanteAlumno.parentesco, Salon)
@@ -123,7 +144,10 @@ def inicio(w: Web = Depends(web)):
             .where(Alumno.id.in_(alumnos_visibles(db, actor)), RepresentanteAlumno.usuario_id == actor.id)
             .order_by(Alumno.nombre)
         ).all()
-        datos["representados"] = representados
+        datos["representados"] = [
+            (alumno, parentesco, salon, academico.resumen_situacion(academico.situacion_alumno(db, alumno)))
+            for alumno, parentesco, salon in representados
+        ]
     return render(w, "portal/inicio.html", datos, seccion="inicio")
 
 
@@ -177,9 +201,20 @@ def ficha(alumno_id: int, w: Web = Depends(web)):
         select(Matricula, Salon.nombre).join(Salon, Salon.id == Matricula.salon_id)
         .where(Matricula.alumno_id == alumno.id).order_by(Matricula.id.desc())
     ).all()
+    periodo = academico.periodo_actual(w.db)
+    visibles = set(w.db.scalars(clases_visibles(w.db, w.actor)))
+    situacion = academico.situacion_alumno(w.db, alumno)
+    pendientes = {}
+    for fila in academico.resumen_situacion(situacion)["pendientes"]:
+        pendientes[fila["tarea"].clase_id] = pendientes.get(fila["tarea"].clase_id, 0) + 1
+    academia = [{
+        "clase": m, "visible": m.id in visibles, "pendientes": pendientes.get(m.id, 0),
+        "promedio": academico.promedio(w.db, m, alumno.id, periodo.id) if periodo and m.id in visibles else None,
+    } for m in materias]
     return render(w, "portal/ficha.html", {
         "alumno": alumno, "salon": salon, "materias": materias, "representantes": representantes,
-        "matriculas": matriculas,
+        "matriculas": matriculas, "academia": academia, "periodo": periodo,
+        "resumen": academico.resumen_situacion(situacion),
         "salon_visible": salon is not None and salon.id in set(w.db.scalars(salones_visibles(w.db, w.actor))),
     }, seccion="alumnos" if w.actor.rol == "administrador" else "inicio")
 

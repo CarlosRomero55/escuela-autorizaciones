@@ -16,6 +16,10 @@ Los permisos se evalúan con el **rol activo** de la sesión. Quien tiene varios
 | Ficha del alumno | Propia | Representados validados | Alumnos de sus salones | Salones con materias de su área (o todos si no tiene área) | — (Fase 7) | Todos | Todos, **con motivo obligatorio** | — | — |
 | Salón | El suyo, compañeros solo por nombre | Materias y docentes del salón de su hijo | Los que dicta o tutela | Según su área | — | Todos | Todos | — | — |
 | Búsqueda | Dentro de su alcance | Dentro de su alcance | Dentro de su alcance | Dentro de su alcance | — | Todo | Todo | — | — |
+| Clase: muro y tareas publicadas | Las de su salón | Las del salón de su representado | Solo las que dicta (gestiona) | Las de su área, en lectura | — | — | Todas, en lectura | — | — |
+| Entregas y notas | Las propias; entrega y pide prórroga | Las de su representado, en lectura; pide prórroga | Las de sus clases; califica, devuelve, resuelve prórrogas | Las de su área, en lectura | — | — | **Con motivo obligatorio** | — | — |
+| Cumplimiento y CSV | — | — | Sus clases | Su área | — | — | Todas | — | — |
+| Rúbricas | — | — | Propias y compartidas de sus materias | — | — | — | — | — | — |
 | Usuarios, roles, vínculos | — | — | — | — | — | — | Gestiona | — | — |
 | Estructura académica y matrículas | — | — | — | — | — | — | Gestiona | — | — |
 | Autorizaciones y familias | — | — | — | — | — | Gestiona | Gestiona | — | — |
@@ -30,6 +34,9 @@ Reglas adicionales:
 - El segundo factor es obligatorio para administración, coordinación, directivos, docentes, consejería y auditoría. No puede desactivarse mientras el rol lo exija.
 - Un rol con `vigente_hasta` vencido deja de contar de inmediato.
 - Nadie puede cerrar sesiones ajenas desde su perfil; el intento responde 404.
+- Una tarea en borrador solo la ve su docente; para los demás responde 404.
+- Ser tutor de un salón no da acceso a las clases de otros docentes de ese salón.
+- Las pruebas de la Fase 3 están en `tests/test_clases.py`.
 
 ## Pruebas
 

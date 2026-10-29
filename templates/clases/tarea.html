@@ -1,0 +1,151 @@
+{% extends "layout.html" %}
+{% from "_macros.html" import encabezado, vacio, estado, csrf_input %}
+{% block titulo %}{{ tarea.titulo }}{% endblock %}
+{% block contenido %}
+<nav aria-label="Ruta"><ol class="breadcrumb pequeno">
+  <li class="breadcrumb-item"><a href="/portal/clases/{{ clase.id }}{% if alumno is defined %}?alumno={{ alumno.id }}{% endif %}">{{ clase.materia.nombre }} · {{ salon.nombre }}</a></li>
+  <li class="breadcrumb-item active" aria-current="page">Tarea</li>
+</ol></nav>
+{% call encabezado(tarea.titulo, tarea.tipo | capitalize ~ " · " ~ periodo.nombre ~ " · Peso " ~ tarea.peso) %}
+  {% if gestiona and tarea.estado == "borrador" %}
+    <form method="post" action="/portal/tareas/{{ tarea.id }}/publicar">{{ csrf_input(csrf) }}<button class="btn btn-primary" type="submit"><i class="bi bi-send" aria-hidden="true"></i> Publicar</button></form>
+  {% endif %}
+{% endcall %}
+
+<div class="row g-4">
+  <div class="col-lg-7">
+    <div class="card mb-4">
+      <div class="card-body">
+        <div class="d-flex flex-wrap gap-2 mb-3">
+          {% if tarea.estado == "borrador" %}{{ estado("Borrador: no lo ven los estudiantes", "neutro", "bi-eye-slash") }}{% endif %}
+          {{ estado("Vence " ~ ((vence if vence is defined else tarea.fecha_entrega) | local), "info", "bi-calendar-event") }}
+          {% if vence is defined and vence != tarea.fecha_entrega %}{{ estado("Prórroga aprobada", "ok", "bi-clock-history") }}{% endif %}
+        </div>
+        <p class="texto-con-saltos">{{ tarea.instrucciones }}</p>
+        <p class="text-secondary pequeno mb-0">Se puede entregar:
+          {% for t in tarea.lista_tipos %}{{ tipos_archivo[t].etiqueta }}{{ ", " if not loop.last }}{% endfor %}{% if tarea.admite_enlace %}{{ ", " if tarea.lista_tipos }}enlace{% endif %}.
+        </p>
+      </div>
+    </div>
+    {% if tarea.rubrica %}
+    <div class="card mb-4">
+      <div class="card-header">Rúbrica: {{ tarea.rubrica.titulo }}</div>
+      <ul class="list-group list-group-flush">
+        {% for c in tarea.rubrica.criterios %}<li class="list-group-item d-flex justify-content-between gap-3"><span>{{ c.descripcion }}</span><span class="text-secondary flex-shrink-0">{{ c.puntos | nota }} pts</span></li>{% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="col-lg-5">
+  {% if alumno is defined %}
+    {# Vista del estudiante o del representante #}
+    <div class="card mb-4">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>{{ "Mi entrega" if actor.rol == "estudiante" else "Entrega de " ~ alumno.persona.nombres }}</span>
+        {% set e = estados[estado_actual] %}{{ estado(e[0], e[1]) }}
+      </div>
+      <div class="card-body">
+        {% if entrega %}
+          <p class="pequeno text-secondary mb-2">Enviada {{ entrega.entregada_en | local }}</p>
+          {% if entrega.archivos %}
+          <ul class="list-unstyled mb-2">
+            {% for a in entrega.archivos %}<li class="archivo"><i class="bi bi-paperclip" aria-hidden="true"></i> <a href="/portal/archivos/{{ a.id }}">{{ a.nombre }}</a> <span class="text-secondary pequeno">{{ a.tamano | tamano }}</span></li>{% endfor %}
+          </ul>
+          {% endif %}
+          {% if entrega.enlace %}<p class="mb-2 texto-cortado"><i class="bi bi-link-45deg" aria-hidden="true"></i> <a href="{{ entrega.enlace }}" rel="noopener noreferrer nofollow" target="_blank">{{ entrega.enlace }}</a></p>{% endif %}
+          {% if entrega.estado in ("calificada", "devuelta") %}
+            <div class="retro">
+              {% if entrega.estado == "calificada" %}<div class="h4 mb-1">{{ entrega.nota | nota if entrega.nota is not none else entrega.nivel }}</div>{% endif %}
+              <p class="mb-0 texto-con-saltos">{{ entrega.comentario_docente or "Sin comentario del docente." }}</p>
+            </div>
+          {% endif %}
+          <a class="pequeno" href="/portal/entregas/{{ entrega.id }}">Ver detalle</a>
+        {% elif actor.rol == "representante" %}
+          <p class="mb-0 text-secondary">{{ alumno.persona.nombres }} todavía no ha entregado esta tarea.</p>
+        {% endif %}
+
+        {% if puede_entregar %}
+          {% if entrega %}<details class="reentrega mt-3 pt-3 borde-arriba"{% if entrega.estado == "devuelta" %} open{% endif %}>
+            <summary><i class="bi bi-arrow-repeat" aria-hidden="true"></i> Volver a entregar</summary>{% endif %}
+          <form method="post" action="/portal/tareas/{{ tarea.id }}/entregar" enctype="multipart/form-data">
+            {{ csrf_input(csrf) }}
+            {% if entrega %}<p class="pequeno text-secondary">Puede volver a entregar hasta que el docente califique. Los archivos anteriores se reemplazan.</p>{% endif %}
+            {% if tarea.lista_tipos %}
+            <div class="mb-3">
+              <label class="form-label" for="adjuntos">Archivos</label>
+              <input class="form-control" type="file" id="adjuntos" name="adjuntos" multiple aria-describedby="ayuda-adj"
+                     accept="{% for t in tarea.lista_tipos %}{{ tipos_archivo[t].extensiones | join(',') }}{{ ',' if not loop.last }}{% endfor %}">
+              <div class="form-text" id="ayuda-adj">Hasta 5 archivos. Las fotos se guardan sin la ubicación ni otros datos ocultos.</div>
+            </div>
+            {% endif %}
+            {% if tarea.admite_enlace %}
+            <div class="mb-3"><label class="form-label" for="enlace">Enlace</label><input class="form-control" type="url" id="enlace" name="enlace" placeholder="https://" maxlength="500"></div>
+            {% endif %}
+            <div class="mb-3"><label class="form-label" for="comentario">Comentario para el docente</label><textarea class="form-control" id="comentario" name="comentario" rows="2" maxlength="2000"></textarea></div>
+            <button class="btn btn-primary w-100" type="submit"><i class="bi bi-upload" aria-hidden="true"></i> {{ "Volver a entregar" if entrega else "Entregar" }}</button>
+          </form>
+          {% if entrega %}</details>{% endif %}
+        {% endif %}
+      </div>
+    </div>
+
+    {% if tarea.admite_prorroga and (not entrega or entrega.estado == "devuelta") %}
+    <div class="card">
+      <div class="card-header">Prórroga</div>
+      <div class="card-body">
+        {% for p in prorrogas %}
+          <p class="pequeno mb-2">{{ estado({"pendiente": "En revisión", "aprobada": "Aprobada", "rechazada": "Rechazada"}[p.estado], {"pendiente": "alerta", "aprobada": "ok", "rechazada": "error"}[p.estado]) }}
+            hasta {{ p.nueva_fecha | local }} · «{{ p.motivo }}»</p>
+        {% endfor %}
+        {% if not prorrogas or prorrogas[0].estado != "pendiente" %}
+        <form method="post" action="/portal/tareas/{{ tarea.id }}/prorrogas">
+          {{ csrf_input(csrf) }}<input type="hidden" name="alumno_id" value="{{ alumno.id }}">
+          <div class="mb-2"><label class="form-label" for="nueva">Nueva fecha</label><input class="form-control" type="datetime-local" id="nueva" name="nueva_fecha" required></div>
+          <div class="mb-2"><label class="form-label" for="motivo">Motivo</label><textarea class="form-control" id="motivo" name="motivo" rows="2" maxlength="500" required></textarea></div>
+          <button class="btn btn-light" type="submit">Solicitar prórroga</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+  {% elif alumnos is defined %}
+    {# Vista del docente, directivo o administrador #}
+    {% if pendientes %}
+    <div class="card mb-4">
+      <div class="card-header">Prórrogas por resolver</div>
+      <ul class="list-group list-group-flush">
+        {% for p in pendientes %}
+          <li class="list-group-item">
+            <div class="fw-semibold pequeno">{{ (alumnos | selectattr("id", "equalto", p.alumno_id) | first).nombre }}</div>
+            <div class="pequeno text-secondary mb-2">Hasta {{ p.nueva_fecha | local }} · «{{ p.motivo }}»</div>
+            {% if gestiona %}
+            <form class="d-flex gap-2" method="post" action="/portal/prorrogas/{{ p.id }}">
+              {{ csrf_input(csrf) }}
+              <button class="btn btn-sm btn-primary" name="accion" value="aprobar" type="submit">Aprobar</button>
+              <button class="btn btn-sm btn-light" name="accion" value="rechazar" type="submit">Rechazar</button>
+            </form>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+    <div class="card">
+      <div class="card-header">Entregas</div>
+      <ul class="list-group list-group-flush">
+        {% for a in alumnos %}
+          {% set c = celdas[a.id] %}
+          {% if c %}{% set e = estados[c.estado] %}{% else %}{% set e = estados["pendiente"] %}{% endif %}
+          <li class="list-group-item d-flex justify-content-between align-items-center gap-2">
+            {% if c and c.entrega %}<a href="/portal/entregas/{{ c.entrega.id }}">{{ a.nombre }}</a>{% else %}<span>{{ a.nombre }}</span>{% endif %}
+            <span class="flex-shrink-0">{% if c and c.entrega and c.entrega.estado == "calificada" %}<span class="fw-semibold">{{ c.entrega.nota | nota if c.entrega.nota is not none else c.entrega.nivel }}</span>{% else %}{{ estado(e[0], e[1]) }}{% endif %}</span>
+          </li>
+        {% else %}<li class="list-group-item text-secondary">No hay alumnos.</li>{% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,77 @@
+{% extends "layout.html" %}
+{% from "_macros.html" import encabezado, csrf_input %}
+{% block titulo %}Nueva tarea{% endblock %}
+{% block contenido %}
+{{ encabezado("Nueva tarea", clase.materia.nombre ~ " · " ~ salon.nombre) }}
+<form class="row g-4" method="post" action="/portal/clases/{{ clase.id }}/tareas">
+  {{ csrf_input(csrf) }}
+  <div class="col-lg-8">
+    <div class="card"><div class="card-body">
+      <div class="mb-3">
+        <label class="form-label" for="titulo">Título</label>
+        <input class="form-control" id="titulo" name="titulo" maxlength="160" required>
+      </div>
+      <div class="mb-3">
+        <label class="form-label" for="instrucciones">Instrucciones</label>
+        <textarea class="form-control" id="instrucciones" name="instrucciones" rows="7" maxlength="8000" required aria-describedby="ayuda-instr"></textarea>
+        <div class="form-text" id="ayuda-instr">Explique qué se entrega, cómo se evalúa y los materiales necesarios.</div>
+      </div>
+      <fieldset class="mb-3">
+        <legend class="form-label">Qué pueden entregar</legend>
+        <div class="row g-2">
+          {% for clave, t in tipos_archivo.items() %}
+            <div class="col-sm-6"><div class="form-check">
+              <input class="form-check-input" type="checkbox" name="tipos_permitidos" value="{{ clave }}" id="tipo-{{ clave }}" {% if clave in ("documento", "imagen") %}checked{% endif %}>
+              <label class="form-check-label" for="tipo-{{ clave }}">{{ t.etiqueta }} <span class="text-secondary pequeno">· hasta {{ t.maximo // 1048576 }} MB</span></label>
+            </div></div>
+          {% endfor %}
+          <div class="col-sm-6"><div class="form-check">
+            <input class="form-check-input" type="checkbox" name="admite_enlace" id="admite-enlace" checked>
+            <label class="form-check-label" for="admite-enlace">Enlace (Drive, YouTube, Scratch…)</label>
+          </div></div>
+        </div>
+      </fieldset>
+      <div class="form-check form-switch">
+        <input class="form-check-input" type="checkbox" role="switch" name="admite_prorroga" id="admite-prorroga" checked>
+        <label class="form-check-label" for="admite-prorroga">Permitir que soliciten prórroga</label>
+      </div>
+    </div></div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card"><div class="card-body">
+      <div class="mb-3">
+        <label class="form-label" for="tipo">Tipo</label>
+        <select class="form-select" id="tipo" name="tipo">{% for t in tipos %}<option value="{{ t }}">{{ t | capitalize }}</option>{% endfor %}</select>
+      </div>
+      <div class="mb-3">
+        <label class="form-label" for="periodo">Trimestre</label>
+        <select class="form-select" id="periodo" name="periodo_id" required>
+          {% for p in periodos %}<option value="{{ p.id }}" {% if periodo_actual and p.id == periodo_actual.id %}selected{% endif %}>{{ p.nombre }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="mb-3">
+        <label class="form-label" for="fecha">Fecha y hora de entrega</label>
+        <input class="form-control" type="datetime-local" id="fecha" name="fecha_entrega" value="{{ fecha_sugerida }}" required>
+      </div>
+      <div class="mb-3">
+        <label class="form-label" for="peso">Peso en el promedio</label>
+        <input class="form-control" type="number" id="peso" name="peso" min="1" max="100" value="1" required aria-describedby="ayuda-peso">
+        <div class="form-text" id="ayuda-peso">Un proyecto de peso 3 cuenta como tres tareas de peso 1.</div>
+      </div>
+      <div class="mb-4">
+        <label class="form-label" for="rubrica">Rúbrica (opcional)</label>
+        <select class="form-select" id="rubrica" name="rubrica_id">
+          <option value="">Sin rúbrica</option>
+          {% for r in rubricas %}<option value="{{ r.id }}">{{ r.titulo }}</option>{% endfor %}
+        </select>
+        {% if not rubricas %}<div class="form-text"><a href="/portal/rubricas">Cree una rúbrica</a> para reutilizarla en varias tareas.</div>{% endif %}
+      </div>
+      <div class="d-grid gap-2">
+        <button class="btn btn-primary" type="submit" name="accion" value="publicar"><i class="bi bi-send" aria-hidden="true"></i> Publicar ahora</button>
+        <button class="btn btn-light" type="submit" name="accion" value="borrador">Guardar borrador</button>
+        <a class="btn btn-link" href="/portal/clases/{{ clase.id }}">Cancelar</a>
+      </div>
+    </div></div>
+  </div>
+</form>
+{% endblock %}

@@ -61,9 +61,10 @@ def session_factory():
 
 
 @pytest.fixture()
-def app(session_factory):
-    # Una aplicación nueva por prueba: los límites de intento empiezan en cero
-    return create_app(session_factory=session_factory, settings=SETTINGS)
+def app(session_factory, tmp_path):
+    # Una aplicación nueva por prueba: los límites de intento empiezan en cero y los archivos van a una carpeta temporal
+    return create_app(session_factory=session_factory,
+                      settings=SETTINGS.model_copy(update={"archivos_dir": str(tmp_path / "archivos")}))
 
 
 @pytest.fixture()

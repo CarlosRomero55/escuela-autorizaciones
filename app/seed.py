@@ -5,23 +5,30 @@ Genera la estructura de una escuela primaria (régimen Costa, Ecuador): 3 nivele
 autorizaciones con campañas y respuestas. La generación es determinista (semilla fija).
 """
 
+import hashlib
 import random
 from dataclasses import dataclass, field
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
+from decimal import Decimal
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app import crypto, security, services
+from app.archivos import Almacen
 from app.audit import registrar
 from app.config import Settings
 from app.models import (
     AdultoAutorizado,
     Alumno,
     AnioLectivo,
+    ArchivoEntrega,
     Area,
     Campana,
     CampanaSalon,
+    CriterioRubrica,
+    Entrega,
+    EscalaCalificacion,
     Familia,
     FamiliaAlumno,
     Grado,
@@ -31,15 +38,20 @@ from app.models import (
     Paralelo,
     PeriodoCalificacion,
     Persona,
+    Prorroga,
+    Publicacion,
+    RangoEscala,
     RepresentanteAlumno,
     RespuestaAutorizacion,
+    Rubrica,
     Salon,
     SalonMateriaDocente,
+    Tarea,
     TokenAcceso,
     Usuario,
     UsuarioRol,
 )
-from app.tiempo import ahora
+from app.tiempo import TZ_ESCUELA, ahora
 
 NOMBRES_NINAS = ["Valentina", "Camila", "Isabella", "Emilia", "Martina", "Sofía", "Renata", "Luciana", "Antonella", "Victoria"]
 NOMBRES_NINOS = ["Mateo", "Santiago", "Sebastián", "Matías", "Nicolás", "Joaquín", "Emiliano", "Benjamín", "Thiago", "Gabriel"]
@@ -107,6 +119,181 @@ def _usuario(c: _Contexto, nombres: str, apellidos: str, login: str, roles: list
     return usuario
 
 
+FUENTE_ESCALAS = ("Instructivo de Evaluación Estudiantil, Ministerio de Educación del Ecuador (2025). "
+                  "VERIFICAR con la normativa vigente antes de usarla con alumnos reales.")
+
+# Escala numérica 1,00–10,00 con equivalencias cualitativas; 7,00 es el mínimo para aprobar.
+RANGOS_NUMERICOS = [
+    ("A+", "Domina los aprendizajes requeridos", "10.00", "10.00"),
+    ("A-", "Domina los aprendizajes requeridos", "9.00", "9.99"),
+    ("B+", "Alcanza los aprendizajes requeridos", "8.00", "8.99"),
+    ("B-", "Alcanza los aprendizajes requeridos", "7.00", "7.99"),
+    ("C+", "Está próximo a alcanzar los aprendizajes requeridos", "6.00", "6.99"),
+    ("C-", "Está próximo a alcanzar los aprendizajes requeridos", "5.00", "5.99"),
+    ("D+", "Está próximo a alcanzar los aprendizajes requeridos", "4.00", "4.99"),
+    ("D-", "No alcanza los aprendizajes requeridos", "3.00", "3.99"),
+    ("E+", "No alcanza los aprendizajes requeridos", "2.00", "2.99"),
+    ("E-", "No alcanza los aprendizajes requeridos", "1.00", "1.99"),
+]
+RANGOS_CUALITATIVOS = [("A", "Adquirido"), ("EP", "En proceso"), ("I", "Iniciado")]
+
+TAREAS_DEMO = {
+    "Matemática": [
+        ("Fracciones equivalentes", "tarea", 1, "Resuelva los ejercicios 1 al 12 de la página 34 y suba una foto clara del cuaderno."),
+        ("Problemas con decimales", "tarea", 1, "Resuelva los cinco problemas de la guía. Muestre el procedimiento completo."),
+        ("Proyecto: presupuesto de la lonchera", "proyecto", 3, "En grupos, calculen el costo semanal de una lonchera saludable con precios reales del mercado. Entreguen un documento o una presentación."),
+        ("Geometría: perímetros del aula", "actividad", 1, "Midan tres objetos del aula y calculen su perímetro. Suban una foto de las mediciones."),
+    ],
+    "Ciencias Naturales": [
+        ("El ciclo del agua", "tarea", 1, "Dibuje el ciclo del agua y explique cada etapa con sus propias palabras."),
+        ("Germinación de una semilla", "proyecto", 3, "Registre durante dos semanas el crecimiento de una semilla de fréjol. Incluya fotos y una tabla con las medidas."),
+        ("Cadenas alimenticias de la Costa", "tarea", 1, "Elabore dos cadenas alimenticias con especies del manglar."),
+    ],
+    "Lengua y Literatura": [
+        ("Lectura: «El cuento de la selva»", "tarea", 1, "Lea el cuento y responda las preguntas de comprensión de la guía."),
+        ("Mi autobiografía", "proyecto", 2, "Escriba una autobiografía de una página con introducción, desarrollo y cierre."),
+    ],
+    "Inglés": [
+        ("My daily routine", "tarea", 1, "Write ten sentences about your daily routine using the simple present."),
+    ],
+}
+COMENTARIOS = ["Muy buen trabajo, el procedimiento es claro.", "Revise la presentación; el resultado es correcto.",
+               "Le faltó justificar dos respuestas.", "Excelente organización.", "Buen esfuerzo, repase el tema en casa."]
+
+
+def _escalas(db: Session) -> dict[str, EscalaCalificacion]:
+    numerica = EscalaCalificacion(
+        nombre="Numérica 1–10 (Básica)", tipo="numerica", minimo_aprobacion=Decimal("7.00"), fuente=FUENTE_ESCALAS,
+        rangos=[RangoEscala(codigo=c, descripcion=d, minimo=Decimal(mi), maximo=Decimal(ma), orden=i)
+                for i, (c, d, mi, ma) in enumerate(RANGOS_NUMERICOS)])
+    cualitativa = EscalaCalificacion(
+        nombre="Cualitativa (Preparatoria)", tipo="cualitativa", fuente=FUENTE_ESCALAS,
+        rangos=[RangoEscala(codigo=c, descripcion=d, orden=i) for i, (c, d) in enumerate(RANGOS_CUALITATIVOS)])
+    db.add_all([numerica, cualitativa])
+    db.flush()
+    return {"numerica": numerica, "cualitativa": cualitativa}
+
+
+def _pdf_demo(titulo: str) -> bytes:
+    """Un PDF mínimo de una página, válido, para que la demo tenga archivos que abrir."""
+    texto = titulo.encode("latin-1", "replace").replace(b"(", b"[").replace(b")", b"]")
+    contenido = b"BT /F1 18 Tf 72 720 Td (" + texto + b") Tj 0 -28 Td /F1 11 Tf (Archivo de demostracion) Tj ET"
+    objetos = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>",
+        b"<< /Length " + str(len(contenido)).encode() + b" >>\nstream\n" + contenido + b"\nendstream",
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    ]
+    salida = bytearray(b"%PDF-1.4\n")
+    posiciones = []
+    for numero, cuerpo in enumerate(objetos, start=1):
+        posiciones.append(len(salida))
+        salida += f"{numero} 0 obj\n".encode() + cuerpo + b"\nendobj\n"
+    inicio_xref = len(salida)
+    salida += f"xref\n0 {len(objetos) + 1}\n0000000000 65535 f \n".encode()
+    for posicion in posiciones:
+        salida += f"{posicion:010d} 00000 n \n".encode()
+    salida += f"trailer\n<< /Size {len(objetos) + 1} /Root 1 0 R >>\nstartxref\n{inicio_xref}\n%%EOF\n".encode()
+    return bytes(salida)
+
+
+def _a_las_18(dia: date) -> datetime:
+    return datetime.combine(dia, time(18, 0), tzinfo=TZ_ESCUELA)
+
+
+def _trabajo_academico(c: _Contexto, salones: list[Salon], periodos: list[PeriodoCalificacion], principal: Usuario,
+                       almacen: Almacen) -> dict:
+    """Tareas, entregas y notas de todos los salones, con fechas relativas a hoy para que la demo luzca al día."""
+    db, rng = c.db, c.rng
+    hoy = ahora().astimezone(TZ_ESCUELA).date()
+    actual = next((p for p in periodos if p.inicio <= hoy <= p.fin), periodos[-1])
+    anterior = next((p for p in reversed(periodos) if p.fin < actual.inicio), None)
+    totales = {"tareas": 0, "entregas": 0}
+
+    rubrica = Rubrica(materia_id=db.scalar(select(Materia.id).where(Materia.nombre == "Matemática")),
+                      autor_id=principal.id, titulo="Proyecto de Matemática (básica)", compartida=True, criterios=[
+                          CriterioRubrica(descripcion=d, puntos=Decimal(p), orden=i) for i, (d, p) in enumerate([
+                              ("Planteamiento correcto del problema", "3"), ("Cálculos y procedimiento", "4"),
+                              ("Presentación y orden", "2"), ("Trabajo en equipo", "1")])])
+    db.add(rubrica)
+    db.flush()
+
+    for salon in salones:
+        basica_media = salon.grado.orden >= 5
+        cualitativa = salon.grado.nivel.nombre == "Preparatoria"
+        clases = db.scalars(select(SalonMateriaDocente).where(SalonMateriaDocente.salon_id == salon.id)).all()
+        alumnos = db.scalars(select(Alumno).where(Alumno.salon_id == salon.id).order_by(Alumno.id)).all()
+        for clase in clases:
+            plantillas = TAREAS_DEMO.get(clase.materia.nombre)
+            if plantillas and not basica_media:
+                # En los grados inferiores, menos trabajo: una tarea del trimestre anterior y una próxima
+                plantillas = plantillas[:1] + plantillas[2:3]
+            if not plantillas:
+                continue
+            db.add(Publicacion(clase_id=clase.id, autor_id=clase.docente_id, titulo="Bienvenidos al trimestre",
+                               cuerpo="Aquí publicaré avisos y materiales. Revisen las tareas cada semana.\n"
+                                      "Si necesitan más tiempo para una entrega, soliciten prórroga desde la tarea."))
+            # Fechas: una tarea del trimestre anterior (ya cerrado) y el resto alrededor de hoy
+            desplazamientos = [-21, -9, 3, 10] if basica_media else [-21, 3]
+            for indice, (titulo, tipo, peso, instrucciones) in enumerate(plantillas):
+                if indice == 0 and anterior is not None:
+                    vence, periodo = _a_las_18(anterior.fin - timedelta(days=10)), anterior
+                else:
+                    dia = max(actual.inicio, min(actual.fin, hoy + timedelta(days=desplazamientos[indice])))
+                    vence, periodo = _a_las_18(dia), actual
+                tarea = Tarea(clase_id=clase.id, periodo_id=periodo.id, titulo=titulo, instrucciones=instrucciones,
+                              tipo=tipo, fecha_entrega=vence, peso=peso,
+                              tipos_permitidos="documento,imagen" if tipo != "proyecto" else "documento,imagen,video",
+                              admite_enlace=True, admite_prorroga=True, estado="publicada",
+                              rubrica_id=rubrica.id if tipo == "proyecto" and clase.materia.nombre == "Matemática" else None,
+                              creada_por=clase.docente_id, publicada_en=vence - timedelta(days=7))
+                db.add(tarea)
+                db.flush()
+                totales["tareas"] += 1
+                pasada = vence.date() < hoy
+                for posicion, alumno in enumerate(alumnos):
+                    estudiante_demo = posicion == 0
+                    probabilidad = 0.93 if pasada else (0.35 if vence.date() - hoy <= timedelta(days=4) else 0.1)
+                    if estudiante_demo and not pasada:
+                        continue  # el usuario «estudiante» tiene trabajo pendiente para probar la entrega
+                    if rng.random() > probabilidad:
+                        continue
+                    tarde = pasada and rng.random() < 0.12
+                    entregada_en = vence + timedelta(hours=rng.randint(2, 40)) if tarde else vence - timedelta(hours=rng.randint(2, 96))
+                    entrega = Entrega(tarea_id=tarea.id, alumno_id=alumno.id, estado="con_retraso" if tarde else "entregada",
+                                      entregada_en=entregada_en,
+                                      enlace=None if estudiante_demo else "https://drive.example.test/demo",
+                                      comentario_alumno="Adjunto mi trabajo." if estudiante_demo else None)
+                    # Las tareas vencidas hace más de una semana ya están calificadas
+                    if pasada and (hoy - vence.date()).days > 7 and rng.random() < 0.95:
+                        nota = Decimal(rng.choice([5, 6, 7, 7, 8, 8, 8, 9, 9, 10])) + Decimal(rng.choice([0, 25, 50, 75])) / 100
+                        entrega.estado = "calificada"
+                        if cualitativa:
+                            entrega.nivel = rng.choice(["A", "A", "EP", "I"])
+                        else:
+                            entrega.nota = min(nota, Decimal("10.00"))
+                        entrega.comentario_docente = rng.choice(COMENTARIOS)
+                        entrega.calificada_por, entrega.calificada_en = clase.docente_id, vence + timedelta(days=3)
+                    db.add(entrega)
+                    db.flush()
+                    totales["entregas"] += 1
+                    if estudiante_demo:
+                        clave = almacen.nueva_clave()
+                        pdf = _pdf_demo(titulo)
+                        almacen.guardar(clave, pdf)
+                        db.add(ArchivoEntrega(entrega_id=entrega.id, nombre=f"{titulo[:60]}.pdf", clave=clave,
+                                              tipo="documento", mime="application/pdf", tamano=len(pdf),
+                                              sha256=hashlib.sha256(pdf).hexdigest()))
+                # Una prórroga pendiente en la próxima tarea de Matemática del docente principal
+                if clase.docente_id == principal.id and not pasada and indice == 2 and len(alumnos) > 3:
+                    solicitante = db.scalar(select(Usuario.id).where(Usuario.persona_id == alumnos[3].persona_id))
+                    db.add(Prorroga(tarea_id=tarea.id, alumno_id=alumnos[3].id, solicitada_por=solicitante or principal.id,
+                                    motivo="Estuve fuera de la ciudad por un viaje familiar y no alcancé a terminar.",
+                                    nueva_fecha=vence + timedelta(days=3)))
+    return totales
+
+
 def poblar(db: Session, *, settings: Settings, password: str, semilla: int = 2026) -> dict:
     if db.scalar(select(func.count()).select_from(Salon)):
         raise RuntimeError("La base ya tiene datos. Use --reset para borrarla y volver a poblarla.")
@@ -121,14 +308,20 @@ def poblar(db: Session, *, settings: Settings, password: str, semilla: int = 202
     anio = AnioLectivo(nombre="2026-2027", inicio=date(2026, 5, 4), fin=date(2027, 2, 5), activo=True)
     db.add(anio)
     db.flush()
+    periodos = []
     for nombre, inicio, fin in [("Primer trimestre", date(2026, 5, 4), date(2026, 8, 14)),
                                 ("Segundo trimestre", date(2026, 8, 17), date(2026, 11, 13)),
                                 ("Tercer trimestre", date(2026, 11, 16), date(2027, 2, 5))]:
-        db.add(PeriodoCalificacion(anio_lectivo_id=anio.id, nombre=nombre, inicio=inicio, fin=fin))
+        periodo = PeriodoCalificacion(anio_lectivo_id=anio.id, nombre=nombre, inicio=inicio, fin=fin,
+                                      cerrado=fin < momento.astimezone(TZ_ESCUELA).date())
+        db.add(periodo)
+        periodos.append(periodo)
+    escalas = _escalas(db)
 
     grados: dict[str, Grado] = {}
     for orden_nivel, (nombre_nivel, lista) in enumerate(NIVELES, start=1):
-        nivel = Nivel(nombre=nombre_nivel, orden=orden_nivel)
+        nivel = Nivel(nombre=nombre_nivel, orden=orden_nivel,
+                      escala_id=escalas["cualitativa" if nombre_nivel == "Preparatoria" else "numerica"].id)
         db.add(nivel)
         db.flush()
         for nombre_grado, orden in lista:
@@ -307,8 +500,12 @@ def poblar(db: Session, *, settings: Settings, password: str, semilla: int = 202
                            expira_en=momento + timedelta(days=settings.family_link_ttl_days)))
         enlaces.append((familia.nombre_familia, f"/f/{token}"))
 
+    # ---------- Clases: tareas, entregas y calificaciones ----------
+    db.flush()
+    academico = _trabajo_academico(c, salones, periodos, principal, Almacen(settings.archivos_dir))
+
     registrar(db, usuario_id=None, accion="poblar_demo", entidad="sistema",
-              cambio={"alumnos": len(alumnos), "familias": len(familias), "respuestas": respuestas})
+              cambio={"alumnos": len(alumnos), "familias": len(familias), "respuestas": respuestas, **academico})
     db.commit()
 
     return {
@@ -321,4 +518,5 @@ def poblar(db: Session, *, settings: Settings, password: str, semilla: int = 202
         "campanas": len(campanas),
         "respuestas": respuestas,
         "enlaces": enlaces,
+        **academico,
     }

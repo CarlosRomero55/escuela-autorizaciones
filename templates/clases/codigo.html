@@ -1,0 +1,10 @@
+{% extends "layout.html" %}
+{% from "_macros.html" import encabezado %}
+{% block titulo %}{{ archivo.nombre }}{% endblock %}
+{% block contenido %}
+{% call encabezado(archivo.nombre, "Vista de texto · el código no se ejecuta") %}
+  <a class="btn btn-light" href="/portal/entregas/{{ entrega.id }}"><i class="bi bi-arrow-left" aria-hidden="true"></i> Volver a la entrega</a>
+  <a class="btn btn-light" href="/portal/archivos/{{ archivo.id }}"><i class="bi bi-download" aria-hidden="true"></i> Descargar</a>
+{% endcall %}
+<div class="card"><pre class="codigo mb-0"><code>{{ texto }}</code></pre></div>
+{% endblock %}
