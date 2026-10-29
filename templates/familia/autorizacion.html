@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block titulo %}Autorización: {{ campana.titulo }}{% endblock %}
+{% block contenido %}
+<h1>{{ campana.titulo }}</h1>
+<p>Alumno: <strong>{{ alumno.nombre }}</strong>. Responder antes del {{ limite }}.</p>
+
+<h2>Texto de la autorización</h2>
+<div class="texto-legal" tabindex="0">{{ campana.texto_legal }}</div>
+
+<form method="post" action="/f/{{ token }}/campanas/{{ campana.id }}" class="formulario">
+  <input type="hidden" name="alumno_id" value="{{ alumno.id }}">
+  <input type="hidden" name="texto_hash" value="{{ texto_hash }}">
+
+  <label>Nombre de quien firma
+    <input name="firmante" required minlength="3" maxlength="120" autocomplete="name">
+  </label>
+  <label>Parentesco con el alumno
+    <input name="parentesco" required minlength="2" maxlength="40">
+  </label>
+
+  <fieldset>
+    <legend>Su decisión</legend>
+    <label class="opcion"><input type="radio" name="decision" value="aceptada" required> Autorizo</label>
+    <label class="opcion"><input type="radio" name="decision" value="rechazada"> No autorizo</label>
+  </fieldset>
+
+  <p class="ayuda">Al enviar, se guardan la fecha, la hora y el texto que usted leyó.</p>
+  <button type="submit" class="boton">Enviar respuesta</button>
+</form>
+{% endblock %}

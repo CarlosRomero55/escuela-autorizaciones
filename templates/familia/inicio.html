@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block titulo %}Autorizaciones de {{ familia.nombre_familia }}{% endblock %}
+{% block contenido %}
+<h1>Hola, {{ familia.nombre_familia }}</h1>
+
+{% if not bloques %}
+  <p>Todavía no hay alumnos vinculados a esta familia. Comuníquese con la escuela.</p>
+{% endif %}
+
+{% for bloque in bloques %}
+<section class="tarjeta">
+  <h2>{{ bloque.alumno.nombre }}</h2>
+
+  <h3>Autorizaciones</h3>
+  {% if bloque.campanas %}
+    <ul class="lista">
+    {% for item in bloque.campanas %}
+      <li>
+        <span class="titulo">{{ item.campana.titulo }}</span>
+        <span class="plazo">Responder antes del {{ item.limite }}</span>
+        {% if item.respondida %}
+          <span class="etiqueta ok">Respondida</span>
+        {% elif item.vencida %}
+          <span class="etiqueta">Plazo vencido</span>
+        {% else %}
+          <a class="boton" href="/f/{{ token }}/campanas/{{ item.campana.id }}?alumno_id={{ bloque.alumno.id }}">Revisar y responder</a>
+        {% endif %}
+      </li>
+    {% endfor %}
+    </ul>
+  {% else %}
+    <p>No hay autorizaciones pendientes.</p>
+  {% endif %}
+
+  <h3>Personas autorizadas a recoger</h3>
+  {% if bloque.adultos %}
+    <ul class="lista">
+    {% for adulto in bloque.adultos %}
+      <li>{{ adulto.nombre }} ({{ adulto.parentesco }}): <span class="etiqueta">{{ adulto.estado }}</span></li>
+    {% endfor %}
+    </ul>
+  {% else %}
+    <p>Aún no ha registrado a nadie.</p>
+  {% endif %}
+
+  {% if bloque.puede_agregar_adulto %}
+  <form method="post" action="/f/{{ token }}/adultos" class="formulario">
+    <input type="hidden" name="alumno_id" value="{{ bloque.alumno.id }}">
+    <h4>Agregar persona autorizada</h4>
+    <label>Nombre completo
+      <input name="nombre" required minlength="3" maxlength="120" autocomplete="name">
+    </label>
+    <label>Parentesco
+      <input name="parentesco" required minlength="2" maxlength="40">
+    </label>
+    <label>Teléfono (opcional)
+      <input name="telefono" maxlength="20" inputmode="tel">
+    </label>
+    <label>Número de documento (opcional)
+      <input name="documento" maxlength="20" inputmode="numeric">
+    </label>
+    <p class="ayuda">La escuela revisará la persona antes de que pueda recoger al alumno.</p>
+    <button type="submit" class="boton">Registrar</button>
+  </form>
+  {% else %}
+    <p class="ayuda">Ya hay {{ max_adultos }} personas registradas para este alumno.</p>
+  {% endif %}
+</section>
+{% endfor %}
+{% endblock %}

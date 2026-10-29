@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block titulo %}Comprobante de respuesta{% endblock %}
+{% block contenido %}
+<h1>Respuesta registrada</h1>
+<section class="tarjeta">
+  <dl>
+    <dt>Autorización</dt><dd>{{ campana.titulo }}</dd>
+    <dt>Alumno</dt><dd>{{ alumno.nombre }}</dd>
+    <dt>Decisión</dt><dd>{{ "Autoriza" if respuesta.decision == "aceptada" else "No autoriza" }}</dd>
+    <dt>Firmado por</dt><dd>{{ respuesta.firmante }} ({{ respuesta.parentesco }})</dd>
+    <dt>Fecha y hora (Ecuador)</dt><dd>{{ fecha }}</dd>
+    <dt>Código del texto</dt><dd class="codigo">{{ respuesta.texto_hash[:16] }}</dd>
+  </dl>
+  <p class="ayuda">La descarga del comprobante en PDF se agregará en una entrega posterior.</p>
+</section>
+{% endblock %}

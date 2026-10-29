@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block titulo %}Código de recogida{% endblock %}
+{% block contenido %}
+<h1>Código de recogida</h1>
+<p>Para <strong>{{ adulto.nombre }}</strong> a recoger a <strong>{{ alumno.nombre }}</strong>.</p>
+
+<section class="tarjeta codigo-grande" aria-live="polite">
+  <p>Muestre este código en portería:</p>
+  <p class="numero">{{ codigo }}</p>
+  <p class="ayuda">Válido hasta el {{ expira }} ({{ minutos }} minutos). Se usa una sola vez.</p>
+</section>
+
+<p class="ayuda">Al generar un código nuevo, el anterior deja de funcionar. Si la persona no va a recoger al alumno, no necesita hacer nada más.</p>
+{% endblock %}

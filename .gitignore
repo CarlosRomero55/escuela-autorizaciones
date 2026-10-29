@@ -1,0 +1,17 @@
+# Entorno y secretos
+.venv/
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Bases locales
+*.db
+*.sqlite3
+
+# Sistema
+.DS_Store

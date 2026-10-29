@@ -1,0 +1,109 @@
+/* Hoja de estilos mínima: sin dependencias externas, contraste alto, objetivos táctiles de 44 px. */
+:root {
+  --texto: #1b1b1b;
+  --fondo: #ffffff;
+  --acento: #0b5cad;
+  --borde: #8a8a8a;
+  --ok: #1e6b34;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 1rem;
+  line-height: 1.5;
+  color: var(--texto);
+  background: var(--fondo);
+}
+
+.encabezado {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  align-items: baseline;
+  padding: 0.75rem 1rem;
+  border-bottom: 2px solid var(--acento);
+}
+
+.demo { font-size: 0.85rem; color: #444; }
+
+main { max-width: 36rem; margin: 0 auto; padding: 1rem; }
+
+h1 { font-size: 1.5rem; }
+h2 { font-size: 1.25rem; margin-top: 1.5rem; }
+h3, h4 { font-size: 1.05rem; }
+
+.tarjeta {
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  padding: 1rem;
+  margin: 1rem 0;
+}
+
+.lista { list-style: none; padding: 0; }
+.lista li { padding: 0.5rem 0; border-bottom: 1px solid #ddd; }
+
+.titulo { display: block; font-weight: 600; }
+.plazo, .ayuda { display: block; color: #444; font-size: 0.9rem; }
+
+.etiqueta {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border: 1px solid var(--borde);
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+.etiqueta.ok { border-color: var(--ok); color: var(--ok); }
+
+.boton {
+  display: inline-block;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0.6rem 1rem;
+  margin-top: 0.5rem;
+  border: 0;
+  border-radius: 6px;
+  background: var(--acento);
+  color: #fff;
+  font-size: 1rem;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.formulario label { display: block; margin: 0.75rem 0; font-weight: 600; }
+
+.formulario input[type="text"],
+.formulario input:not([type]),
+.formulario input[type="tel"] {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  margin-top: 0.25rem;
+  padding: 0.5rem;
+  font-size: 1rem;
+  border: 1px solid var(--borde);
+  border-radius: 4px;
+}
+
+.opcion { display: flex; align-items: center; gap: 0.5rem; min-height: 44px; font-weight: 400; }
+.opcion input { width: 1.25rem; height: 1.25rem; }
+
+fieldset { border: 1px solid var(--borde); border-radius: 6px; margin: 1rem 0; padding: 0.75rem; }
+
+.texto-legal {
+  white-space: pre-wrap;
+  border: 1px solid var(--borde);
+  border-radius: 6px;
+  padding: 1rem;
+  max-height: 40vh;
+  overflow-y: auto;
+  background: #f7f7f7;
+}
+
+.codigo { font-family: ui-monospace, monospace; }
+
+dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.4rem 1rem; }
+dt { font-weight: 600; }
+dd { margin: 0; }
