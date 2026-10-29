@@ -1,0 +1,45 @@
+{% extends "admin/base.html" %}
+{% block titulo %}Vista previa de importación{% endblock %}
+{% block contenido %}
+<h1>Vista previa</h1>
+
+<div class="indicadores">
+  <div class="indicador"><span class="cifra">{{ conteo.valida }}</span> se importarán</div>
+  <div class="indicador{% if conteo.duplicada %} atencion{% endif %}"><span class="cifra">{{ conteo.duplicada }}</span> duplicados</div>
+  <div class="indicador{% if conteo.error %} atencion{% endif %}"><span class="cifra">{{ conteo.error }}</span> con errores</div>
+</div>
+
+<div class="tabla">
+<table>
+  <thead><tr><th scope="col">Línea</th><th scope="col">Código</th><th scope="col">Nombre</th><th scope="col">Salón</th><th scope="col">Resultado</th></tr></thead>
+  <tbody>
+  {% for fila in filas %}
+    <tr>
+      <td>{{ fila.linea }}</td>
+      <td>{{ fila.codigo_interno }}</td>
+      <td>{{ fila.nombre }}</td>
+      <td>{{ fila.salon }}</td>
+      <td>
+        {% if fila.estado == "valida" %}<span class="etiqueta validado">Se importará</span>
+        {% elif fila.estado == "duplicada" %}<span class="etiqueta pendiente">Duplicado</span> {{ fila.mensaje }}
+        {% else %}<span class="etiqueta rechazado">Error</span> {{ fila.mensaje }}{% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+
+{% if conteo.valida %}
+<form method="post" action="/admin/alumnos/importar" class="formulario">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <textarea name="texto" hidden readonly>{{ texto }}</textarea>
+  <p>Se crearán {{ conteo.valida }} alumnos. Las filas con duplicados o errores se omitirán.</p>
+  <button type="submit" class="boton">Confirmar importación</button>
+  <a class="boton secundario" href="/admin/alumnos/importar">Cancelar</a>
+</form>
+{% else %}
+<p>No hay filas válidas para importar. Corrija el archivo y vuelva a intentarlo.</p>
+<a class="boton secundario" href="/admin/alumnos/importar">Volver</a>
+{% endif %}
+{% endblock %}

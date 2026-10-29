@@ -1,0 +1,58 @@
+{% extends "admin/base.html" %}
+{% block titulo %}Alumnos{% endblock %}
+{% block contenido %}
+<h1>Alumnos</h1>
+
+<form method="get" action="/admin/alumnos" class="formulario fila" role="search">
+  <label>Buscar por nombre <input name="q" value="{{ q }}" maxlength="60"></label>
+  <label>Salón
+    <select name="salon_id">
+      <option value="">Todos</option>
+      {% for salon in salones %}<option value="{{ salon.id }}"{% if salon.id == salon_id %} selected{% endif %}>{{ salon.nombre }}</option>{% endfor %}
+    </select>
+  </label>
+  <button type="submit" class="boton secundario">Filtrar</button>
+  <a class="boton secundario" href="/admin/alumnos/importar">Importar desde CSV</a>
+</form>
+
+<div class="tabla">
+<table>
+  <thead><tr><th scope="col">Código</th><th scope="col">Nombre</th><th scope="col">Salón</th><th scope="col">Estado</th><th scope="col">Acción</th></tr></thead>
+  <tbody>
+  {% for alumno, salon in filas %}
+    <tr>
+      <td>{{ alumno.codigo_interno }}</td>
+      <td>{{ alumno.nombre }}</td>
+      <td>{{ salon }}</td>
+      <td><span class="etiqueta {{ 'validado' if alumno.activo else '' }}">{{ "Activo" if alumno.activo else "Inactivo" }}</span></td>
+      <td>
+        <form method="post" action="/admin/alumnos/{{ alumno.id }}/activo" class="en-linea">
+          <input type="hidden" name="csrf" value="{{ csrf }}">
+          <input type="hidden" name="activo" value="{{ '0' if alumno.activo else '1' }}">
+          <button type="submit" class="boton secundario">{{ "Desactivar" if alumno.activo else "Activar" }}</button>
+        </form>
+      </td>
+    </tr>
+  {% else %}
+    <tr><td colspan="5">No hay alumnos con ese filtro.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<section class="tarjeta">
+  <h2>Agregar alumno</h2>
+  <form method="post" action="/admin/alumnos" class="formulario fila">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>Código interno <input name="codigo_interno" required maxlength="20"></label>
+    <label>Nombre completo <input name="nombre" required maxlength="120"></label>
+    <label>Salón
+      <select name="salon_id" required>
+        <option value="">Elija…</option>
+        {% for salon in salones %}<option value="{{ salon.id }}">{{ salon.nombre }}</option>{% endfor %}
+      </select>
+    </label>
+    <button type="submit" class="boton">Agregar</button>
+  </form>
+</section>
+{% endblock %}

@@ -20,9 +20,9 @@ def _ip(request: Request) -> str | None:
     return request.client.host if request.client else None
 
 
-@router.post("/login")
-def login(body: LoginIn, request: Request, db: Session = Depends(get_db)):
-    email = body.email.strip().lower()
+def iniciar_sesion(request: Request, db: Session, email: str, password: str) -> dict:
+    """Primer paso del acceso. Lo usan la API y el formulario del panel. Lanza HTTPException si falla."""
+    email = email.strip().lower()
     limiter = request.app.state.login_limiter
     clave = f"login:{_ip(request)}:{email}"
     if not limiter.allow(clave):
@@ -30,9 +30,9 @@ def login(body: LoginIn, request: Request, db: Session = Depends(get_db)):
 
     usuario = db.scalar(select(UsuarioStaff).where(UsuarioStaff.email == email))
     if usuario is None:
-        security.verify_password(_HASH_REFERENCIA, body.password)
+        security.verify_password(_HASH_REFERENCIA, password)
         raise HTTPException(status_code=401, detail=CREDENCIALES_INVALIDAS)
-    if not usuario.activo or not security.verify_password(usuario.password_hash, body.password):
+    if not usuario.activo or not security.verify_password(usuario.password_hash, password):
         raise HTTPException(status_code=401, detail=CREDENCIALES_INVALIDAS)
 
     limiter.reset(clave)
@@ -48,8 +48,8 @@ def login(body: LoginIn, request: Request, db: Session = Depends(get_db)):
     return {"paso": "completo", "rol": usuario.rol}
 
 
-@router.post("/totp")
-def verificar_totp(body: TotpIn, request: Request, db: Session = Depends(get_db)):
+def completar_totp(request: Request, db: Session, codigo: str) -> dict:
+    """Segundo paso del acceso. Lanza HTTPException si falla."""
     uid = request.session.get("pendiente_uid")
     if uid is None:
         raise HTTPException(status_code=401, detail="Inicie sesión primero.")
@@ -60,7 +60,7 @@ def verificar_totp(body: TotpIn, request: Request, db: Session = Depends(get_db)
         raise HTTPException(status_code=429, detail="Demasiados intentos. Inicie sesión de nuevo más tarde.")
 
     usuario = db.get(UsuarioStaff, uid)
-    if usuario is None or not usuario.totp_secret or not security.verify_totp(usuario.totp_secret, body.codigo):
+    if usuario is None or not usuario.totp_secret or not security.verify_totp(usuario.totp_secret, codigo):
         raise HTTPException(status_code=401, detail="Código no válido.")
 
     limiter.reset(f"totp:{uid}")
@@ -69,6 +69,16 @@ def verificar_totp(body: TotpIn, request: Request, db: Session = Depends(get_db)
     registrar(db, usuario_id=usuario.id, accion="inicio_sesion", entidad="sesion", ip=_ip(request))
     db.commit()
     return {"paso": "completo", "rol": usuario.rol}
+
+
+@router.post("/login")
+def login(body: LoginIn, request: Request, db: Session = Depends(get_db)):
+    return iniciar_sesion(request, db, body.email, body.password)
+
+
+@router.post("/totp")
+def verificar_totp(body: TotpIn, request: Request, db: Session = Depends(get_db)):
+    return completar_totp(request, db, body.codigo)
 
 
 @router.post("/logout")

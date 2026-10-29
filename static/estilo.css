@@ -74,9 +74,11 @@ h3, h4 { font-size: 1.05rem; }
 
 .formulario label { display: block; margin: 0.75rem 0; font-weight: 600; }
 
-.formulario input[type="text"],
-.formulario input:not([type]),
-.formulario input[type="tel"] {
+.formulario input:not([type="radio"]):not([type="checkbox"]):not([type="hidden"]):not([type="file"]),
+.formulario select,
+.formulario textarea,
+textarea.copiable,
+input.copiable {
   display: block;
   width: 100%;
   min-height: 44px;
@@ -107,3 +109,90 @@ fieldset { border: 1px solid var(--borde); border-radius: 6px; margin: 1rem 0; p
 dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.4rem 1rem; }
 dt { font-weight: 600; }
 dd { margin: 0; }
+
+/* ---------- Panel de administración ---------- */
+:root {
+  --atencion: #8a4b00;
+  --peligro: #a3261b;
+  --suave: #f3f5f8;
+}
+
+.admin main.ancho { max-width: 72rem; }
+
+.usuario { margin-left: auto; font-size: 0.9rem; }
+.en-linea { display: inline-flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; margin: 0.15rem 0; }
+.en-linea .boton, .acciones .boton { margin-top: 0; }
+
+.menu, .pestanas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid #ccc;
+}
+.menu a, .pestanas a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 0.75rem;
+  border-radius: 6px;
+  color: var(--acento);
+  text-decoration: none;
+}
+.menu a[aria-current="page"], .pestanas a[aria-current="page"] {
+  background: var(--acento);
+  color: #fff;
+}
+.pestanas { padding: 0.5rem 0; margin: 1rem 0; }
+
+.boton.secundario { background: #fff; color: var(--acento); border: 1px solid var(--acento); }
+.boton.peligro { background: var(--peligro); }
+
+.aviso { padding: 0.75rem 1rem; border-radius: 6px; border-left: 4px solid var(--ok); background: #eef7f0; }
+.aviso.error { border-left-color: var(--peligro); background: #fbeeed; }
+
+.indicadores {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+.indicador {
+  display: block;
+  padding: 1rem;
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  color: var(--texto);
+  text-decoration: none;
+  background: var(--suave);
+}
+.indicador.atencion { border-color: var(--atencion); background: #fdf4e8; }
+.cifra { display: block; font-size: 1.75rem; font-weight: 700; }
+
+.tabla { overflow-x: auto; margin: 1rem 0; }
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 0.5rem; text-align: left; vertical-align: top; border-bottom: 1px solid #ddd; }
+th { background: var(--suave); white-space: nowrap; }
+td.acciones { white-space: nowrap; }
+progress { width: 6rem; vertical-align: middle; }
+
+.etiqueta.validado { border-color: var(--ok); color: var(--ok); }
+.etiqueta.pendiente { border-color: var(--atencion); color: var(--atencion); }
+.etiqueta.rechazado { border-color: var(--peligro); color: var(--peligro); }
+
+.angosta { max-width: 28rem; margin-left: auto; margin-right: auto; }
+.formulario.fila { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: flex-end; }
+.formulario.fila label { margin: 0; flex: 1 1 12rem; }
+.formulario.fila .opcion { flex: 0 1 auto; }
+
+.oculto {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap;
+}
+.ejemplo { background: var(--suave); padding: 0.75rem; border-radius: 6px; overflow-x: auto; }
+.pequeno { font-size: 0.8rem; word-break: break-word; }
+details summary { cursor: pointer; min-height: 44px; font-weight: 600; }
+code { background: var(--suave); padding: 0 0.25rem; border-radius: 3px; }
+
+/* El atributo hidden debe ganar siempre, aunque otra regla fije display */
+[hidden] { display: none !important; }

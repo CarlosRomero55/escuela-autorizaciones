@@ -1,0 +1,27 @@
+{% extends "admin/base.html" %}
+{% block titulo %}Salones{% endblock %}
+{% block contenido %}
+<h1>Salones</h1>
+<div class="tabla">
+<table>
+  <thead><tr><th scope="col">Salón</th><th scope="col">Grado</th><th scope="col">Alumnos activos</th></tr></thead>
+  <tbody>
+  {% for salon, cantidad in salones %}
+    <tr><td><a href="/admin/alumnos?salon_id={{ salon.id }}">{{ salon.nombre }}</a></td><td>{{ salon.grado }}</td><td>{{ cantidad }}</td></tr>
+  {% else %}
+    <tr><td colspan="3">Todavía no hay salones.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<section class="tarjeta">
+  <h2>Agregar salón</h2>
+  <form method="post" action="/admin/salones" class="formulario fila">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>Nombre <input name="nombre" required maxlength="60" placeholder="Ej.: 4A"></label>
+    <label>Grado <input name="grado" required maxlength="20" placeholder="Ej.: 4to"></label>
+    <button type="submit" class="boton">Agregar</button>
+  </form>
+</section>
+{% endblock %}

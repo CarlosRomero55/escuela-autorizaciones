@@ -36,7 +36,10 @@
   {% if bloque.adultos %}
     <ul class="lista">
     {% for adulto in bloque.adultos %}
-      <li>{{ adulto.nombre }} ({{ adulto.parentesco }}): <span class="etiqueta">{{ adulto.estado }}</span></li>
+      <li>{{ adulto.nombre }} ({{ adulto.parentesco }}):
+        {% if adulto.estado == "validado" %}<span class="etiqueta validado">Validada por la escuela</span>
+        {% elif adulto.estado == "pendiente" %}<span class="etiqueta pendiente">Pendiente de revisión</span>
+        {% else %}<span class="etiqueta rechazado">No aprobada</span>{% endif %}</li>
     {% endfor %}
     </ul>
   {% else %}

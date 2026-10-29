@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     encryption_key: str = ""
     # Días de vigencia de los enlaces de familia
     family_link_ttl_days: int = 30
+    # Demo pública: muestra los usuarios de prueba en la pantalla de acceso. Nunca activar con datos reales.
+    demo_mode: bool = False
+    demo_password: str = ""
 
     def validate_for_production(self) -> None:
         """Impide arrancar en producción con claves de desarrollo o sin clave de cifrado."""

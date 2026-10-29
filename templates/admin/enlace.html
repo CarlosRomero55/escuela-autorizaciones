@@ -1,0 +1,24 @@
+{% extends "admin/base.html" %}
+{% block titulo %}Enlace de {{ familia.nombre_familia }}{% endblock %}
+{% block contenido %}
+<h1>Enlace de {{ familia.nombre_familia }}</h1>
+<p class="aviso ok" role="status">Enlace generado. Vence el {{ expira | local }}. Cópielo ahora: por seguridad no se vuelve a mostrar.</p>
+
+<section class="tarjeta">
+  <label class="formulario">Enlace personal
+    <input value="{{ url }}" readonly class="copiable">
+  </label>
+
+  <h2>Mensaje sugerido</h2>
+  <textarea readonly rows="4" class="copiable">{{ mensaje }}</textarea>
+
+  {% if whatsapp %}
+    <p><a class="boton" href="{{ whatsapp }}" target="_blank" rel="noopener noreferrer">Abrir en WhatsApp</a></p>
+    <p class="ayuda">Se abre WhatsApp con el mensaje listo. Revíselo antes de enviarlo.</p>
+  {% else %}
+    <p class="ayuda">Esta familia no tiene teléfono registrado. Copie el mensaje y envíelo por el medio que use la escuela.</p>
+  {% endif %}
+  <p class="ayuda">Si recarga esta página se genera otro enlace y este deja de funcionar.</p>
+</section>
+<p><a href="/admin/familias">Volver a familias</a></p>
+{% endblock %}

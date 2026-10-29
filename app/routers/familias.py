@@ -1,18 +1,15 @@
-import hashlib
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from pydantic import BaseModel
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app import crypto, security
+from app import crypto, security, services
 from app.audit import registrar
 from app.db import get_db
 from app.deps import require_roles
@@ -27,10 +24,12 @@ from app.models import (
     TokenAcceso,
     UsuarioStaff,
 )
-from app.routers.admin import GESTION, _guardar
+from app.routers.admin import GESTION
+from app.tiempo import ahora as _ahora
+from app.tiempo import aware as _aware
+from app.tiempo import local as _local
 
 RAIZ = Path(__file__).resolve().parents[2]
-TZ_ESCUELA = ZoneInfo("America/Guayaquil")
 MAX_ADULTOS_POR_ALUMNO = 2
 
 templates = Jinja2Templates(
@@ -51,21 +50,7 @@ def _ip(request: Request) -> str | None:
     return request.client.host if request.client else None
 
 
-def _aware(dt: datetime) -> datetime:
-    # SQLite devuelve datetimes sin zona horaria; se asume UTC, que es como se guardan
-    return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
-
-
-def _ahora() -> datetime:
-    return datetime.now(timezone.utc)
-
-
-def _local(dt: datetime) -> str:
-    return _aware(dt).astimezone(TZ_ESCUELA).strftime("%d/%m/%Y %H:%M")
-
-
-def _texto_hash(texto: str) -> str:
-    return hashlib.sha256(texto.encode("utf-8")).hexdigest()
+_texto_hash = services.hash_texto
 
 
 def _error(request: Request, mensaje: str, status: int) -> HTMLResponse:
@@ -82,13 +67,8 @@ def vincular_alumno(
     db: Session = Depends(get_db),
     usuario: UsuarioStaff = Depends(require_roles(*GESTION)),
 ):
-    if db.get(Familia, familia_id) is None or db.get(Alumno, body.alumno_id) is None:
-        raise HTTPException(status_code=404, detail="Familia o alumno no encontrado.")
-    if db.get(FamiliaAlumno, (familia_id, body.alumno_id)) is None:
-        db.add(FamiliaAlumno(familia_id=familia_id, alumno_id=body.alumno_id))
-    registrar(db, usuario_id=usuario.id, accion="vincular_alumno", entidad="familia", entidad_id=familia_id,
-              cambio={"alumno_id": body.alumno_id}, ip=_ip(request))
-    _guardar(db)
+    services.vincular_alumno(db, usuario_id=usuario.id, ip=_ip(request), familia_id=familia_id,
+                             alumno_id=body.alumno_id)
     return {"familia_id": familia_id, "alumno_id": body.alumno_id}
 
 
@@ -100,26 +80,8 @@ def generar_enlace(
     usuario: UsuarioStaff = Depends(require_roles(*GESTION)),
 ):
     """Genera un enlace nuevo. El token se muestra una sola vez; los enlaces anteriores quedan invalidados."""
-    if db.get(Familia, familia_id) is None:
-        raise HTTPException(status_code=404, detail="Familia no encontrada.")
-    settings = request.app.state.settings
-    ahora = _ahora()
-
-    db.execute(
-        update(TokenAcceso)
-        .where(TokenAcceso.familia_id == familia_id, TokenAcceso.expira_en > ahora)
-        .values(expira_en=ahora)
-    )
-    token = security.generate_token()
-    expira = ahora + timedelta(days=settings.family_link_ttl_days)
-    db.add(TokenAcceso(
-        familia_id=familia_id,
-        token_hash=security.hash_secret(token, settings.token_hmac_key),
-        expira_en=expira,
-    ))
-    registrar(db, usuario_id=usuario.id, accion="generar_enlace", entidad="familia", entidad_id=familia_id,
-              cambio={"expira_en": expira.isoformat()}, ip=_ip(request))
-    _guardar(db)
+    token, expira = services.generar_enlace(db, settings=request.app.state.settings, usuario_id=usuario.id,
+                                            ip=_ip(request), familia_id=familia_id)
     return {"url": f"/f/{token}", "expira_en": expira.isoformat()}
 
 

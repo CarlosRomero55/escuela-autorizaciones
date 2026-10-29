@@ -1,0 +1,29 @@
+{% extends "admin/base.html" %}
+{% block titulo %}Iniciar sesión{% endblock %}
+{% block contenido %}
+<section class="tarjeta angosta">
+  <h1>Iniciar sesión</h1>
+  {% if error %}<p class="aviso error" role="alert">{{ error }}</p>{% endif %}
+  <form method="post" action="/admin/login" class="formulario">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>Correo
+      <input type="email" name="email" value="{{ email or '' }}" required autocomplete="username">
+    </label>
+    <label>Contraseña
+      <input type="password" name="password" required autocomplete="current-password">
+    </label>
+    <button type="submit" class="boton">Entrar</button>
+  </form>
+</section>
+
+{% if demo %}
+<section class="tarjeta angosta">
+  <h2>Usuarios de demostración</h2>
+  <p class="ayuda">Todos los datos son ficticios. Contraseña: <code>{{ demo_password }}</code></p>
+  <ul class="lista">
+    {% for correo, rol in demo %}<li><code>{{ correo }}</code>: {{ rol }}</li>{% endfor %}
+  </ul>
+  <p class="ayuda">Portería y maestras no entran a este panel; su pantalla es la de portería.</p>
+</section>
+{% endif %}
+{% endblock %}

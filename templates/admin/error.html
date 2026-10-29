@@ -1,0 +1,9 @@
+{% extends "admin/base.html" %}
+{% block titulo %}Aviso{% endblock %}
+{% block contenido %}
+<section class="tarjeta angosta">
+  <h1>No se puede continuar</h1>
+  <p>{{ mensaje }}</p>
+  <p><a href="/admin">Volver al panel</a></p>
+</section>
+{% endblock %}

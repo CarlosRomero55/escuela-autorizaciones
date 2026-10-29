@@ -1,0 +1,24 @@
+{% extends "admin/base.html" %}
+{% block titulo %}Bitácora{% endblock %}
+{% block contenido %}
+<h1>Bitácora de auditoría</h1>
+<p class="ayuda">Registro de solo lectura: nadie puede modificarlo ni borrarlo. Se muestran las últimas 200 acciones.</p>
+<div class="tabla">
+<table>
+  <thead><tr><th scope="col">Fecha</th><th scope="col">Quién</th><th scope="col">Acción</th><th scope="col">Sobre</th><th scope="col">Detalle</th></tr></thead>
+  <tbody>
+  {% for entrada, nombre in filas %}
+    <tr>
+      <td>{{ entrada.creada_en | local("%d/%m/%Y %H:%M:%S") }}</td>
+      <td>{{ nombre or "Familia (enlace)" }}</td>
+      <td>{{ entrada.accion }}</td>
+      <td>{{ entrada.entidad }}{% if entrada.entidad_id %} #{{ entrada.entidad_id }}{% endif %}</td>
+      <td class="codigo pequeno">{{ entrada.cambio or "" }}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="5">Sin registros.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

@@ -1,0 +1,51 @@
+{% extends "admin/base.html" %}
+{% block titulo %}Familias{% endblock %}
+{% block contenido %}
+<h1>Familias</h1>
+<p class="ayuda">Cada familia recibe un enlace personal. Por seguridad, el enlace solo se muestra al generarlo; si se pierde, genere uno nuevo y el anterior dejará de funcionar.</p>
+
+<div class="tabla">
+<table>
+  <thead><tr><th scope="col">Familia</th><th scope="col">Alumnos</th><th scope="col">Mensajes</th><th scope="col">Enlace</th><th scope="col">Acciones</th></tr></thead>
+  <tbody>
+  {% for familia in familias %}
+    <tr>
+      <td>{{ familia.nombre_familia }}</td>
+      <td>{{ vinculos.get(familia.id, []) | join(", ") or "Sin alumnos" }}</td>
+      <td>{{ "Acepta" if familia.consentimiento_mensajes else "No acepta" }}</td>
+      <td>{% if familia.id in vencimientos %}Vigente hasta {{ vencimientos[familia.id] | local("%d/%m/%Y") }}{% else %}<span class="etiqueta pendiente">Sin enlace vigente</span>{% endif %}</td>
+      <td class="acciones">
+        <form method="post" action="/admin/familias/{{ familia.id }}/enlace" class="en-linea">
+          <input type="hidden" name="csrf" value="{{ csrf }}">
+          <button type="submit" class="boton">Generar enlace</button>
+        </form>
+        <form method="post" action="/admin/familias/{{ familia.id }}/alumnos" class="en-linea">
+          <input type="hidden" name="csrf" value="{{ csrf }}">
+          <label class="oculto" for="alumno-{{ familia.id }}">Alumno a vincular</label>
+          <select name="alumno_id" id="alumno-{{ familia.id }}" required>
+            <option value="">Vincular alumno…</option>
+            {% for alumno, salon in alumnos %}<option value="{{ alumno.id }}">{{ salon }} · {{ alumno.nombre }}</option>{% endfor %}
+          </select>
+          <button type="submit" class="boton secundario">Vincular</button>
+        </form>
+      </td>
+    </tr>
+  {% else %}
+    <tr><td colspan="5">Todavía no hay familias.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<section class="tarjeta">
+  <h2>Agregar familia</h2>
+  <form method="post" action="/admin/familias" class="formulario fila">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>Nombre de la familia <input name="nombre_familia" required maxlength="120" placeholder="Ej.: Familia Pérez"></label>
+    <label>Teléfono de WhatsApp <input name="telefono" maxlength="20" inputmode="tel" placeholder="09XXXXXXXX"></label>
+    <label>Correo <input type="email" name="email" maxlength="160"></label>
+    <label class="opcion"><input type="checkbox" name="consentimiento"> Acepta recibir mensajes de la escuela</label>
+    <button type="submit" class="boton">Agregar</button>
+  </form>
+</section>
+{% endblock %}
