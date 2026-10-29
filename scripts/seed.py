@@ -51,10 +51,13 @@ def main() -> int:
             return 1
 
     print(f"Salones: {resumen['salones']} · Alumnos: {resumen['alumnos']} · Familias: {resumen['familias']}")
-    print(f"Adultos: {resumen['adultos']} · Campañas: {resumen['campanas']} · Respuestas: {resumen['respuestas']}")
-    print("\nUsuarios (misma contraseña de DEMO_PASSWORD):")
-    for email, rol in resumen["usuarios"]:
-        print(f"  {email:24} {rol}")
+    print(f"Usuarios: {resumen['usuarios']} (docentes: {resumen['docentes']}, "
+          f"estudiantes con cuenta: {resumen['estudiantes_con_cuenta']})")
+    print(f"Campañas: {resumen['campanas']} · Respuestas: {resumen['respuestas']}")
+    print("\nUsuarios de demostración (contraseña: DEMO_PASSWORD):")
+    for login in ("admin", "sofia", "rector", "dir.matematica", "docente", "representante", "estudiante",
+                  "consejeria", "auditor", "porteria"):
+        print(f"  {login}")
     print("\nEnlaces de familias de ejemplo (se muestran una sola vez):")
     for familia, url in resumen["enlaces"]:
         print(f"  {familia}: {url}")

@@ -1,9 +1,5 @@
-from pathlib import Path
-
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
-from jinja2 import Environment, FileSystemLoader, select_autoescape
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -12,7 +8,6 @@ from sqlalchemy.orm import Session
 from app import crypto, security, services
 from app.audit import registrar
 from app.db import get_db
-from app.deps import require_roles
 from app.models import (
     AdultoAutorizado,
     Alumno,
@@ -22,19 +17,15 @@ from app.models import (
     FamiliaAlumno,
     RespuestaAutorizacion,
     TokenAcceso,
-    UsuarioStaff,
 )
-from app.routers.admin import GESTION
+from app.permisos import Actor
+from app.routers.admin import GESTION, autor_de, exigir
 from app.tiempo import ahora as _ahora
 from app.tiempo import aware as _aware
 from app.tiempo import local as _local
+from app.web import templates
 
-RAIZ = Path(__file__).resolve().parents[2]
 MAX_ADULTOS_POR_ALUMNO = 2
-
-templates = Jinja2Templates(
-    env=Environment(loader=FileSystemLoader(RAIZ / "templates"), autoescape=select_autoescape(["html"]))
-)
 
 # Rutas de administración (JSON, con control de rol)
 api = APIRouter(prefix="/api", tags=["familias"])
@@ -65,10 +56,9 @@ def vincular_alumno(
     body: VinculoIn,
     request: Request,
     db: Session = Depends(get_db),
-    usuario: UsuarioStaff = Depends(require_roles(*GESTION)),
+    actor: Actor = Depends(exigir(GESTION)),
 ):
-    services.vincular_alumno(db, usuario_id=usuario.id, ip=_ip(request), familia_id=familia_id,
-                             alumno_id=body.alumno_id)
+    services.vincular_alumno(db, autor_de(actor, request), familia_id, body.alumno_id)
     return {"familia_id": familia_id, "alumno_id": body.alumno_id}
 
 
@@ -77,11 +67,10 @@ def generar_enlace(
     familia_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    usuario: UsuarioStaff = Depends(require_roles(*GESTION)),
+    actor: Actor = Depends(exigir(GESTION)),
 ):
     """Genera un enlace nuevo. El token se muestra una sola vez; los enlaces anteriores quedan invalidados."""
-    token, expira = services.generar_enlace(db, settings=request.app.state.settings, usuario_id=usuario.id,
-                                            ip=_ip(request), familia_id=familia_id)
+    token, expira = services.generar_enlace(db, request.app.state.settings, autor_de(actor, request), familia_id)
     return {"url": f"/f/{token}", "expira_en": expira.isoformat()}
 
 

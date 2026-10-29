@@ -1,0 +1,17 @@
+{% extends "acceso/base.html" %}
+{% block titulo %}Recuperar contraseña{% endblock %}
+{% block contenido %}
+<div class="card"><div class="card-body p-4">
+  <h1 class="h4">Recuperar contraseña</h1>
+  <p class="text-secondary">Escriba el correo registrado en la escuela. Le enviaremos un enlace que vence en pocos minutos.</p>
+  {% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
+  <form method="post" action="/cuenta/recuperar">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label for="email" class="form-label">Correo</label>
+    <input id="email" name="email" type="email" class="form-control mb-3" required autocomplete="email">
+    <button type="submit" class="btn btn-primary w-100">Enviar enlace</button>
+  </form>
+  <p class="pequeno text-secondary mt-3 mb-0">Los estudiantes sin correo deben pedir un enlace nuevo a la escuela.</p>
+  <div class="text-center mt-2"><a href="/ingresar">Volver al ingreso</a></div>
+</div></div>
+{% endblock %}

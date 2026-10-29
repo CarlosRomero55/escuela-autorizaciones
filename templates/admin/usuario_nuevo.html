@@ -1,0 +1,27 @@
+{% extends "layout.html" %}
+{% from "_macros.html" import encabezado %}
+{% block titulo %}Nuevo usuario{% endblock %}
+{% block contenido %}
+{% call encabezado("Nuevo usuario", "La persona recibirá un enlace de un solo uso para elegir su contraseña.") %}<a class="btn btn-light" href="/admin/usuarios"><i class="bi bi-arrow-left" aria-hidden="true"></i> Usuarios</a>{% endcall %}
+<form method="post" action="/admin/usuarios" class="card ancho-lectura">
+  <div class="card-body row g-3">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="col-sm-6"><label class="form-label" for="nombres">Nombres</label><input id="nombres" name="nombres" class="form-control" required maxlength="80"></div>
+    <div class="col-sm-6"><label class="form-label" for="apellidos">Apellidos</label><input id="apellidos" name="apellidos" class="form-control" required maxlength="80"></div>
+    <div class="col-sm-7"><label class="form-label" for="email">Correo (opcional)</label><input id="email" name="email" type="email" class="form-control" maxlength="160" aria-describedby="ayuda-email"><div id="ayuda-email" class="form-text">Necesario para recuperar la contraseña por su cuenta.</div></div>
+    <div class="col-sm-5"><label class="form-label" for="login">Usuario (opcional)</label><input id="login" name="login" class="form-control" maxlength="60" pattern="[a-z0-9._\-]{3,60}" aria-describedby="ayuda-login"><div id="ayuda-login" class="form-text">Si lo deja vacío: nombre.apellido</div></div>
+    <fieldset class="col-12">
+      <legend class="form-label">Roles</legend>
+      <div class="row">
+        {% for r in roles %}
+          <div class="col-sm-6 col-lg-4"><label class="form-check"><input class="form-check-input" type="checkbox" name="roles" value="{{ r }}"> {{ ETIQUETAS_ROL[r] }}</label></div>
+        {% endfor %}
+      </div>
+    </fieldset>
+    <div class="col-sm-7"><label class="form-label" for="area">Área (solo para directivos)</label>
+      <select id="area" name="area_id" class="form-select"><option value="">Toda la institución</option>{% for a in areas %}<option value="{{ a.id }}">{{ a.nombre }}</option>{% endfor %}</select></div>
+    <div class="col-12"><p class="text-secondary pequeno mb-0">Administración, coordinación, directivos, docentes, consejería y auditoría deberán configurar la verificación en dos pasos en su primer ingreso.</p></div>
+  </div>
+  <div class="card-body border-top"><button class="btn btn-primary">Crear y generar enlace</button></div>
+</form>
+{% endblock %}

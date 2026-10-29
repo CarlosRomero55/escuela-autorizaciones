@@ -1,24 +1,34 @@
-{% extends "admin/base.html" %}
+{% extends "layout.html" %}
+{% from "_macros.html" import encabezado, vacio %}
 {% block titulo %}Bitácora{% endblock %}
 {% block contenido %}
-<h1>Bitácora de auditoría</h1>
-<p class="ayuda">Registro de solo lectura: nadie puede modificarlo ni borrarlo. Se muestran las últimas 200 acciones.</p>
-<div class="tabla">
-<table>
-  <thead><tr><th scope="col">Fecha</th><th scope="col">Quién</th><th scope="col">Acción</th><th scope="col">Sobre</th><th scope="col">Detalle</th></tr></thead>
-  <tbody>
-  {% for entrada, nombre in filas %}
-    <tr>
-      <td>{{ entrada.creada_en | local("%d/%m/%Y %H:%M:%S") }}</td>
-      <td>{{ nombre or "Familia (enlace)" }}</td>
-      <td>{{ entrada.accion }}</td>
-      <td>{{ entrada.entidad }}{% if entrada.entidad_id %} #{{ entrada.entidad_id }}{% endif %}</td>
-      <td class="codigo pequeno">{{ entrada.cambio or "" }}</td>
-    </tr>
-  {% else %}
-    <tr><td colspan="5">Sin registros.</td></tr>
-  {% endfor %}
-  </tbody>
-</table>
+{{ encabezado("Bitácora de auditoría", "Solo lectura: nadie puede modificarla ni borrarla." ~ (" Sus consultas también quedan registradas." if actor.rol == "auditor" else "")) }}
+<form method="get" action="/admin/bitacora" class="d-flex gap-2 mb-3 ancho-lectura">
+  <label class="visually-hidden" for="accion">Acción</label>
+  <select id="accion" name="accion" class="form-select"><option value="">Todas las acciones</option>{% for a in acciones %}<option value="{{ a }}"{% if a == accion %} selected{% endif %}>{{ a }}</option>{% endfor %}</select>
+  <button class="btn btn-outline-primary">Filtrar</button>
+</form>
+<div class="card">
+  <div class="table-responsive">
+    <table class="table tabla-tarjetas">
+      <thead><tr><th scope="col">Fecha</th><th scope="col">Quién</th><th scope="col">Rol</th><th scope="col">Acción</th><th scope="col">Sobre</th><th scope="col">Detalle</th></tr></thead>
+      <tbody>
+      {% for e, u in filas %}
+        <tr>
+          <td data-label="Fecha">{{ e.creada_en | local("%d/%m/%Y %H:%M:%S") }}</td>
+          <td data-label="Quién">{{ u.login if u else "Familia (enlace)" }}</td>
+          <td data-label="Rol">{{ ETIQUETAS_ROL.get(e.rol, "—") if e.rol else "—" }}</td>
+          <td data-label="Acción"><code>{{ e.accion }}</code></td>
+          <td data-label="Sobre">{{ e.entidad }}{% if e.entidad_id %} #{{ e.entidad_id }}{% endif %}</td>
+          <td data-label="Detalle" class="pequeno">{% if e.motivo %}<strong>Motivo:</strong> {{ e.motivo }}<br>{% endif %}{{ e.cambio or "" }}</td>
+        </tr>
+      {% else %}<tr><td colspan="6">{{ vacio("bi-journal", "Sin registros.") }}</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <nav class="d-flex justify-content-end gap-2 p-3" aria-label="Paginación">
+    {% if pagina > 1 %}<a class="btn btn-light" href="{{ url_con(request, pagina=pagina - 1) }}">Más recientes</a>{% endif %}
+    {% if hay_mas %}<a class="btn btn-light" href="{{ url_con(request, pagina=pagina + 1) }}">Anteriores</a>{% endif %}
+  </nav>
 </div>
 {% endblock %}

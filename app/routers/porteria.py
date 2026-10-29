@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
@@ -17,7 +17,7 @@ from app.models import (
     Incidente,
     Recogida,
     Salon,
-    UsuarioStaff,
+    Usuario,
 )
 from app.routers.admin import _flush, _guardar
 from app.routers.familias import (
@@ -33,9 +33,9 @@ from app.routers.familias import (
 )
 
 # Quienes atienden la portería
-PORTERIA = ("administrador", "coordinadora", "porteria")
+PORTERIA = ("administrador", "coordinacion", "porteria")
 # Quienes gestionan autorizaciones temporales
-GESTION = ("administrador", "coordinadora")
+GESTION = ("administrador", "coordinacion")
 
 PASOS_NO_AUTORIZADO = [
     "No entregue al alumno. Manténgalo en un lugar supervisado, cerca de personal de la escuela.",
@@ -112,7 +112,7 @@ def buscar_alumnos(
     q: str | None = None,
     salon_id: int | None = None,
     db: Session = Depends(get_db),
-    _: UsuarioStaff = Depends(require_roles(*PORTERIA, "maestra")),
+    _: Usuario = Depends(require_roles(*PORTERIA, "docente")),
 ):
     consulta = select(Alumno, Salon.nombre).join(Salon, Salon.id == Alumno.salon_id).where(Alumno.activo.is_(True))
     if q and q.strip():
@@ -127,7 +127,7 @@ def buscar_alumnos(
 def adultos_autorizados(
     alumno_id: int,
     db: Session = Depends(get_db),
-    _: UsuarioStaff = Depends(require_roles(*PORTERIA, "maestra")),
+    _: Usuario = Depends(require_roles(*PORTERIA, "docente")),
 ):
     """Solo personas validadas y vigentes. No se devuelven teléfonos ni documentos."""
     alumno = _alumno_activo(db, alumno_id)
@@ -147,7 +147,7 @@ def validar_codigo(
     body: ValidarCodigoIn,
     request: Request,
     db: Session = Depends(get_db),
-    usuario: UsuarioStaff = Depends(require_roles(*PORTERIA)),
+    usuario: Usuario = Depends(require_roles(*PORTERIA)),
 ):
     if body.sync_id:
         # Reintento de sincronización offline: devolver el registro existente, no duplicarlo
@@ -210,7 +210,7 @@ def registrar_recogida_manual(
     body: RecogidaManualIn,
     request: Request,
     db: Session = Depends(get_db),
-    usuario: UsuarioStaff = Depends(require_roles(*PORTERIA)),
+    usuario: Usuario = Depends(require_roles(*PORTERIA)),
 ):
     """Recogida de una persona autorizada y vigente, verificada por personal de portería sin código."""
     if body.sync_id:
@@ -243,7 +243,7 @@ def registrar_no_autorizado(
     body: IncidenteIn,
     request: Request,
     db: Session = Depends(get_db),
-    usuario: UsuarioStaff = Depends(require_roles(*PORTERIA)),
+    usuario: Usuario = Depends(require_roles(*PORTERIA)),
 ):
     """Registra el intento y el incidente en una sola transacción, y devuelve el protocolo a seguir."""
     if body.sync_id:
@@ -283,12 +283,12 @@ def autorizar_temporal(
     body: TemporalIn,
     request: Request,
     db: Session = Depends(get_db),
-    usuario: UsuarioStaff = Depends(require_roles(*GESTION)),
+    usuario: Usuario = Depends(require_roles(*GESTION)),
 ):
     alumno = _alumno_activo(db, alumno_id)
     # Se guarda todo en UTC para que la comparación de vigencia sea correcta en cualquier base
-    desde = _aware(body.vigente_desde).astimezone(timezone.utc)
-    hasta = _aware(body.vigente_hasta).astimezone(timezone.utc)
+    desde = _aware(body.vigente_desde).astimezone(UTC)
+    hasta = _aware(body.vigente_hasta).astimezone(UTC)
     if hasta <= desde:
         raise HTTPException(status_code=422, detail="La vigencia final debe ser posterior a la inicial.")
 

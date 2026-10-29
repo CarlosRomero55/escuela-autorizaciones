@@ -1,0 +1,18 @@
+{% extends "layout.html" %}
+{% from "_macros.html" import encabezado, estado, vacio %}
+{% block titulo %}Mensajes simulados{% endblock %}
+{% block contenido %}
+{{ encabezado("Mensajes simulados", "Solo en la demo: lo que el sistema enviaría por correo o WhatsApp cuando se conecte un proveedor.") }}
+<div class="alert alert-warning ancho-lectura pequeno">En producción esta bandeja no existe: un proceso en segundo plano entrega los mensajes y los marca como enviados.</div>
+<div class="card">
+  <ul class="list-group list-group-flush">
+    {% for e in envios %}
+      <li class="list-group-item">
+        <div class="d-flex flex-wrap justify-content-between gap-2"><strong>{{ e.asunto }}</strong>{{ estado(e.canal | capitalize ~ " · " ~ e.estado, "info") }}</div>
+        <div class="text-secondary pequeno">Para {{ e.destino }} · {{ e.creado_en | local }}</div>
+        <div class="texto-legal pequeno mt-2">{{ e.cuerpo }}</div>
+      </li>
+    {% else %}<li class="list-group-item">{{ vacio("bi-envelope", "Sin mensajes.") }}</li>{% endfor %}
+  </ul>
+</div>
+{% endblock %}

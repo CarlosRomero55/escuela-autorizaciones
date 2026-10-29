@@ -1,24 +1,25 @@
-{% extends "admin/base.html" %}
+{% extends "layout.html" %}
+{% from "_macros.html" import encabezado %}
 {% block titulo %}Enlace de {{ familia.nombre_familia }}{% endblock %}
 {% block contenido %}
-<h1>Enlace de {{ familia.nombre_familia }}</h1>
-<p class="aviso ok" role="status">Enlace generado. Vence el {{ expira | local }}. Cópielo ahora: por seguridad no se vuelve a mostrar.</p>
-
-<section class="tarjeta">
-  <label class="formulario">Enlace personal
-    <input value="{{ url }}" readonly class="copiable">
-  </label>
-
-  <h2>Mensaje sugerido</h2>
-  <textarea readonly rows="4" class="copiable">{{ mensaje }}</textarea>
-
+{{ encabezado("Enlace de " ~ familia.nombre_familia) }}
+<div class="alert alert-success ancho-lectura">Enlace generado. Vence el {{ expira | local }}. Cópielo ahora: por seguridad no se vuelve a mostrar.</div>
+<section class="card ancho-lectura"><div class="card-body">
+  <label class="form-label" for="url">Enlace personal</label>
+  <div class="input-group mb-3">
+    <input id="url" class="form-control" value="{{ url }}" readonly>
+    <button class="btn btn-outline-primary" type="button" data-copiar="#url"><i class="bi bi-clipboard" aria-hidden="true"></i> Copiar</button>
+  </div>
+  <label class="form-label" for="mensaje">Mensaje sugerido</label>
+  <textarea id="mensaje" class="form-control mb-3" rows="4" readonly>{{ mensaje }}</textarea>
   {% if whatsapp %}
-    <p><a class="boton" href="{{ whatsapp }}" target="_blank" rel="noopener noreferrer">Abrir en WhatsApp</a></p>
-    <p class="ayuda">Se abre WhatsApp con el mensaje listo. Revíselo antes de enviarlo.</p>
+    <a class="btn btn-primary" href="{{ whatsapp }}" target="_blank" rel="noopener noreferrer"><i class="bi bi-whatsapp" aria-hidden="true"></i> Abrir en WhatsApp</a>
+    <p class="text-secondary pequeno mt-2">Se abre WhatsApp con el mensaje listo. Revíselo antes de enviarlo.</p>
   {% else %}
-    <p class="ayuda">Esta familia no tiene teléfono registrado. Copie el mensaje y envíelo por el medio que use la escuela.</p>
+    <button class="btn btn-light" type="button" data-copiar="#mensaje">Copiar mensaje</button>
+    <p class="text-secondary pequeno mt-2">Esta familia no tiene teléfono registrado.</p>
   {% endif %}
-  <p class="ayuda">Si recarga esta página se genera otro enlace y este deja de funcionar.</p>
-</section>
-<p><a href="/admin/familias">Volver a familias</a></p>
+  <p class="text-secondary pequeno mb-0">Si recarga esta página se genera otro enlace y este deja de funcionar.</p>
+</div></section>
+<p class="mt-3"><a href="/admin/familias">Volver a familias</a></p>
 {% endblock %}

@@ -1,0 +1,12 @@
+{% extends "layout.html" %}
+{% from "_macros.html" import encabezado %}
+{% block titulo %}Buscar{% endblock %}
+{% block contenido %}
+{{ encabezado("Buscar", "Solo aparecen alumnos y salones dentro de su alcance.") }}
+<form method="get" action="/portal/buscar" class="d-flex gap-2 mb-3 ancho-lectura" role="search">
+  <label for="q2" class="visually-hidden">Término</label>
+  <input id="q2" name="q" value="{{ q }}" class="form-control" minlength="2">
+  <button class="btn btn-primary" type="submit">Buscar</button>
+</form>
+<div class="ancho-lectura">{% include "portal/_resultados.html" %}</div>
+{% endblock %}

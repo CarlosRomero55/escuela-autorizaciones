@@ -1,0 +1,12 @@
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["F", "E9", "B", "UP", "I"]
+# B008: FastAPI usa llamadas en valores por defecto (Depends, Form) por diseño
+ignore = ["B008", "UP007", "UP035"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["ignore:The anyio.abc.BlockingPortal alias is deprecated:DeprecationWarning"]

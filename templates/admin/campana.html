@@ -1,60 +1,63 @@
-{% extends "admin/base.html" %}
+{% extends "layout.html" %}
+{% from "_macros.html" import encabezado, indicador, estado, estado_respuesta, vacio %}
 {% block titulo %}{{ campana.titulo }}{% endblock %}
 {% block contenido %}
-<h1>{{ campana.titulo }}</h1>
-<p>{{ TIPOS[campana.tipo] }} · Cierra el {{ campana.fecha_limite | local }} ·
-  <span class="etiqueta {{ 'validado' if vigente else '' }}">{{ "Abierta" if vigente else "Cerrada" }}</span></p>
-{% if campana.descripcion %}<p>{{ campana.descripcion }}</p>{% endif %}
-
-<div class="indicadores">
-  <div class="indicador"><span class="cifra">{{ totales.avance }} %</span> de avance</div>
-  <div class="indicador"><span class="cifra">{{ totales.aceptadas }}</span> autorizan</div>
-  <div class="indicador"><span class="cifra">{{ totales.rechazadas }}</span> no autorizan</div>
-  <div class="indicador{% if totales.pendientes %} atencion{% endif %}"><span class="cifra">{{ totales.pendientes }}</span> pendientes</div>
+{% call encabezado(campana.titulo, TIPOS[campana.tipo] ~ " · cierra el " ~ (campana.fecha_limite | local)) %}
+  {{ estado("Abierta", "ok") if vigente else estado("Cerrada", "neutro") }}
+  <a class="btn btn-light" href="/admin/campanas/{{ campana.id }}/csv"><i class="bi bi-download" aria-hidden="true"></i> CSV</a>
+{% endcall %}
+{% if campana.descripcion %}<p class="text-secondary">{{ campana.descripcion }}</p>{% endif %}
+<div class="row g-3 mb-4">
+  {{ indicador("bi-graph-up", "azul", totales.avance ~ " %", "de avance") }}
+  {{ indicador("bi-check-circle", "verde", totales.aceptadas, "autorizan") }}
+  {{ indicador("bi-x-circle", "rojo", totales.rechazadas, "no autorizan") }}
+  {{ indicador("bi-hourglass-split", "ambar", totales.pendientes, "pendientes") }}
 </div>
-
-<h2>Avance por salón</h2>
-<div class="tabla">
-<table>
-  <thead><tr><th scope="col">Salón</th><th scope="col">Alumnos</th><th scope="col">Autorizan</th><th scope="col">No autorizan</th><th scope="col">Pendientes</th></tr></thead>
-  <tbody>
-  {% for fila in progreso %}
-    <tr><td>{{ fila.salon }}</td><td>{{ fila.total }}</td><td>{{ fila.aceptadas }}</td><td>{{ fila.rechazadas }}</td><td>{{ fila.pendientes }}</td></tr>
-  {% endfor %}
-  </tbody>
-</table>
+<div class="row g-4">
+  <div class="col-xl-4">
+    <div class="card">
+      <div class="card-header">Avance por salón</div>
+      <ul class="list-group list-group-flush">
+        {% for f in progreso %}
+          <li class="list-group-item">
+            <div class="d-flex justify-content-between"><strong>{{ f.salon }}</strong><span class="text-secondary pequeno">{{ f.aceptadas + f.rechazadas }} de {{ f.total }}</span></div>
+            <progress class="w-100" max="{{ f.total or 1 }}" value="{{ f.aceptadas + f.rechazadas }}" aria-label="Avance de {{ f.salon }}"></progress>
+          </li>
+        {% endfor %}
+      </ul>
+      <div class="card-body pequeno text-secondary">Envíos y aperturas por WhatsApp se mostrarán cuando se conecte la mensajería (Fase 4).</div>
+    </div>
+  </div>
+  <div class="col-xl-8">
+    <div class="card">
+      <div class="card-header">
+        <nav class="nav nav-pills gap-1" aria-label="Filtrar alumnos">
+          {% for clave, texto in [("", "Todos"), ("pendiente", "Pendientes"), ("aceptada", "Autorizan"), ("rechazada", "No autorizan")] %}
+            <a class="nav-link{% if clave == estado %} active{% endif %}" href="/admin/campanas/{{ campana.id }}{{ '?estado=' ~ clave if clave }}"{% if clave == estado %} aria-current="page"{% endif %}>{{ texto }}</a>
+          {% endfor %}
+        </nav>
+      </div>
+      <div class="table-responsive">
+        <table class="table tabla-tarjetas">
+          <thead><tr><th scope="col">Salón</th><th scope="col">Alumno</th><th scope="col">Respuesta</th><th scope="col">Firmó</th><th scope="col">Fecha</th></tr></thead>
+          <tbody>
+          {% for alumno, salon, respuesta in filas %}
+            <tr>
+              <td data-label="Salón">{{ salon }}</td>
+              <td data-label="Alumno">{{ alumno.nombre }}</td>
+              <td data-label="Respuesta">{{ estado_respuesta(respuesta) }}</td>
+              <td data-label="Firmó">{% if respuesta %}{{ respuesta.firmante }} ({{ respuesta.parentesco }}){% endif %}</td>
+              <td data-label="Fecha">{% if respuesta %}{{ respuesta.creada_en | local }}{% endif %}</td>
+            </tr>
+          {% else %}<tr><td colspan="5">{{ vacio("bi-funnel", "No hay alumnos con ese filtro.") }}</td></tr>{% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
 </div>
-<p class="ayuda">Los envíos y aperturas por WhatsApp se mostrarán cuando se conecte la mensajería.</p>
-
-<h2>Alumnos</h2>
-<nav class="pestanas" aria-label="Filtrar alumnos">
-  {% for clave, texto in [("", "Todos"), ("pendiente", "Pendientes"), ("aceptada", "Autorizan"), ("rechazada", "No autorizan")] %}
-    <a href="/admin/campanas/{{ campana.id }}{{ '?estado=' ~ clave if clave }}"{% if clave == estado %} aria-current="page"{% endif %}>{{ texto }}</a>
-  {% endfor %}
-  <a href="/admin/campanas/{{ campana.id }}/csv">Descargar CSV</a>
-</nav>
-<div class="tabla">
-<table>
-  <thead><tr><th scope="col">Salón</th><th scope="col">Alumno</th><th scope="col">Respuesta</th><th scope="col">Firmó</th><th scope="col">Fecha</th></tr></thead>
-  <tbody>
-  {% for alumno, salon, respuesta in filas %}
-    <tr>
-      <td>{{ salon }}</td>
-      <td>{{ alumno.nombre }}</td>
-      <td>{% if respuesta %}<span class="etiqueta {{ 'validado' if respuesta.decision == 'aceptada' else 'rechazado' }}">{{ "Autoriza" if respuesta.decision == "aceptada" else "No autoriza" }}</span>{% else %}<span class="etiqueta pendiente">Pendiente</span>{% endif %}</td>
-      <td>{% if respuesta %}{{ respuesta.firmante }} ({{ respuesta.parentesco }}){% endif %}</td>
-      <td>{% if respuesta %}{{ respuesta.creada_en | local }}{% endif %}</td>
-    </tr>
-  {% else %}
-    <tr><td colspan="5">No hay alumnos con ese filtro.</td></tr>
-  {% endfor %}
-  </tbody>
-</table>
-</div>
-
-<details class="tarjeta">
-  <summary>Texto de la autorización</summary>
-  <div class="texto-legal">{{ campana.texto_legal }}</div>
-  <p class="ayuda">Código de verificación del texto: <code>{{ campana.texto_hash[:16] }}</code></p>
+<details class="card mt-4"><summary class="card-header">Texto de la autorización</summary>
+  <div class="card-body"><div class="texto-legal">{{ campana.texto_legal }}</div>
+  <p class="text-secondary pequeno mt-2 mb-0">Código de verificación del texto: <code>{{ campana.texto_hash[:16] }}</code></p></div>
 </details>
 {% endblock %}

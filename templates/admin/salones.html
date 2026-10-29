@@ -1,27 +1,40 @@
-{% extends "admin/base.html" %}
+{% extends "layout.html" %}
+{% from "_macros.html" import encabezado, estado, vacio %}
 {% block titulo %}Salones{% endblock %}
 {% block contenido %}
-<h1>Salones</h1>
-<div class="tabla">
-<table>
-  <thead><tr><th scope="col">Salón</th><th scope="col">Grado</th><th scope="col">Alumnos activos</th></tr></thead>
-  <tbody>
-  {% for salon, cantidad in salones %}
-    <tr><td><a href="/admin/alumnos?salon_id={{ salon.id }}">{{ salon.nombre }}</a></td><td>{{ salon.grado }}</td><td>{{ cantidad }}</td></tr>
-  {% else %}
-    <tr><td colspan="3">Todavía no hay salones.</td></tr>
-  {% endfor %}
-  </tbody>
-</table>
+{{ encabezado("Salones", ("Año lectivo " ~ anio.nombre) if anio else "Active un año lectivo para crear salones.") }}
+{% if anio %}
+<div class="card mb-4">
+  <div class="table-responsive">
+    <table class="table tabla-tarjetas">
+      <thead><tr><th scope="col">Salón</th><th scope="col">Nivel</th><th scope="col">Tutor/a</th><th scope="col">Alumnos</th><th scope="col">Docentes asignados</th></tr></thead>
+      <tbody>
+      {% for f in filas %}
+        <tr>
+          <td data-label="Salón"><a href="/admin/salones/{{ f.salon.id }}">{{ f.salon.nombre }}</a></td>
+          <td data-label="Nivel">{{ f.salon.grado.nivel.nombre }}</td>
+          <td data-label="Tutor/a">{{ f.salon.tutor.nombre if f.salon.tutor else estado("Sin tutor", "alerta") }}</td>
+          <td data-label="Alumnos">{{ f.alumnos }}</td>
+          <td data-label="Docentes asignados">{{ estado(f.asignadas ~ " de " ~ f.total_materias, "ok" if f.asignadas == f.total_materias else "alerta") }}</td>
+        </tr>
+      {% else %}<tr><td colspan="5">{{ vacio("bi-easel", "Todavía no hay salones en este año.") }}</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 
-<section class="tarjeta">
-  <h2>Agregar salón</h2>
-  <form method="post" action="/admin/salones" class="formulario fila">
+<section class="card ancho-lectura" aria-labelledby="t-nuevo">
+  <div class="card-header" id="t-nuevo">Nuevo salón</div>
+  <form method="post" action="/admin/salones" class="card-body row g-3 align-items-end">
     <input type="hidden" name="csrf" value="{{ csrf }}">
-    <label>Nombre <input name="nombre" required maxlength="60" placeholder="Ej.: 4A"></label>
-    <label>Grado <input name="grado" required maxlength="20" placeholder="Ej.: 4to"></label>
-    <button type="submit" class="boton">Agregar</button>
+    <div class="col-sm-4"><label class="form-label" for="grado">Grado</label>
+      <select id="grado" name="grado_id" class="form-select" required><option value="">Elija…</option>{% for g in grados %}<option value="{{ g.id }}">{{ g.nombre }}</option>{% endfor %}</select></div>
+    <div class="col-sm-3"><label class="form-label" for="paralelo">Paralelo</label>
+      <select id="paralelo" name="paralelo_id" class="form-select" required>{% for p in paralelos %}<option value="{{ p.id }}">{{ p.nombre }}</option>{% endfor %}</select></div>
+    <div class="col-sm-5"><label class="form-label" for="tutor">Tutor/a (opcional)</label>
+      <select id="tutor" name="tutor_id" class="form-select"><option value="">Sin asignar</option>{% for d in docentes %}<option value="{{ d.id }}">{{ d.nombre }}</option>{% endfor %}</select></div>
+    <div class="col-12"><button class="btn btn-primary">Crear salón</button></div>
   </form>
 </section>
+{% endif %}
 {% endblock %}

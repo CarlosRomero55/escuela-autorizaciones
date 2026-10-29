@@ -1,11 +1,11 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pyotp
 
 from app import security
 
 KEY = "clave-de-prueba-para-hmac"
-NOW = datetime(2026, 10, 29, 12, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 10, 29, 12, 0, tzinfo=UTC)
 
 
 # ---------- Contraseñas ----------

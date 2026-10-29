@@ -1,0 +1,67 @@
+{% extends "layout.html" %}
+{% from "_macros.html" import encabezado, estado, vacio %}
+{% block titulo %}{{ u.nombre }}{% endblock %}
+{% block contenido %}
+{% call encabezado(u.nombre, u.login ~ (" · " ~ email if email else "")) %}<a class="btn btn-light" href="/admin/usuarios"><i class="bi bi-arrow-left" aria-hidden="true"></i> Usuarios</a>{% endcall %}
+<div class="row g-4">
+  <div class="col-xl-6">
+    <section class="card mb-4" aria-labelledby="t-estado">
+      <div class="card-header" id="t-estado">Estado de la cuenta</div>
+      <div class="card-body">
+        <p class="d-flex flex-wrap gap-2">{{ estado(estado_cuenta[0], {"success": "ok", "warning": "alerta", "danger": "error"}.get(estado_cuenta[1], "neutro")) }}
+          {{ estado("2 pasos activado", "ok") if u.totp_secret_cifrado else estado("Sin 2 pasos", "neutro") }}
+          {{ estado(sesiones_activas ~ " sesión(es) activa(s)", "info") }}</p>
+        <div class="d-flex flex-wrap gap-2">
+          <form method="post" action="/admin/usuarios/{{ u.id }}/enlace"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn btn-outline-primary">{{ "Generar enlace de activación" if not u.password_hash else "Generar enlace para nueva contraseña" }}</button></form>
+          {% if sesiones_activas %}<form method="post" action="/admin/usuarios/{{ u.id }}/sesiones/cerrar"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn btn-light">Cerrar sus sesiones</button></form>{% endif %}
+          <form method="post" action="/admin/usuarios/{{ u.id }}/activo"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="activo" value="{{ '0' if u.activo else '1' }}"><button class="btn {{ 'btn-light text-danger' if u.activo else 'btn-light' }}">{{ "Desactivar cuenta" if u.activo else "Reactivar cuenta" }}</button></form>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="t-roles">
+      <div class="card-header" id="t-roles">Roles</div>
+      <ul class="list-group list-group-flush">
+        {% for r in u.roles %}
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+            <span>{{ ETIQUETAS_ROL[r.rol] }}{% if r.rol == "directivo" %} <span class="text-secondary pequeno">· {{ r.area.nombre if r.area else "toda la institución" }}</span>{% endif %}</span>
+            <form method="post" action="/admin/usuarios/{{ u.id }}/roles/{{ r.id }}/quitar"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn btn-light" aria-label="Quitar rol {{ ETIQUETAS_ROL[r.rol] }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button></form>
+          </li>
+        {% endfor %}
+      </ul>
+      <form method="post" action="/admin/usuarios/{{ u.id }}/roles" class="card-body row g-2 align-items-end border-top">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <div class="col-sm-5"><label class="form-label" for="rol">Agregar rol</label><select id="rol" name="rol" class="form-select">{% for r in roles %}<option value="{{ r }}">{{ ETIQUETAS_ROL[r] }}</option>{% endfor %}</select></div>
+        <div class="col-sm-5"><label class="form-label" for="area">Área (directivo)</label><select id="area" name="area_id" class="form-select"><option value="">Toda la institución</option>{% for a in areas %}<option value="{{ a.id }}">{{ a.nombre }}</option>{% endfor %}</select></div>
+        <div class="col-sm-2"><button class="btn btn-primary w-100">Agregar</button></div>
+      </form>
+    </section>
+  </div>
+
+  <div class="col-xl-6">
+    <section class="card" aria-labelledby="t-repr">
+      <div class="card-header" id="t-repr">Representados</div>
+      {% if es_representante %}
+        <ul class="list-group list-group-flush">
+          {% for vinculo, alumno in representados %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+              <span>{{ alumno.nombre }} <span class="text-secondary pequeno">· {{ vinculo.parentesco }}</span></span>
+              <form method="post" action="/admin/usuarios/{{ u.id }}/representados/{{ vinculo.id }}/quitar"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn btn-light">Desvincular</button></form>
+            </li>
+          {% else %}<li class="list-group-item">{{ vacio("bi-people", "Sin representados vinculados.") }}</li>{% endfor %}
+        </ul>
+        <form method="post" action="/admin/usuarios/{{ u.id }}/representados" class="card-body row g-2 align-items-end border-top">
+          <input type="hidden" name="csrf" value="{{ csrf }}">
+          <div class="col-sm-7"><label class="form-label" for="alumno">Alumno</label>
+            <select id="alumno" name="alumno_id" class="form-select" required><option value="">Elija…</option>{% for a, s in alumnos %}<option value="{{ a.id }}">{{ s or "Sin salón" }} · {{ a.nombre }}</option>{% endfor %}</select></div>
+          <div class="col-sm-3"><label class="form-label" for="parentesco">Parentesco</label><input id="parentesco" name="parentesco" class="form-control" required maxlength="40" placeholder="madre"></div>
+          <div class="col-sm-2"><button class="btn btn-primary w-100">Vincular</button></div>
+        </form>
+        <p class="card-body pt-0 text-secondary pequeno mb-0">El vínculo queda validado por usted y registrado en la bitácora. El representante no puede vincularse por su cuenta.</p>
+      {% else %}
+        {{ vacio("bi-person", "Asigne el rol de representante para vincular alumnos.") }}
+      {% endif %}
+    </section>
+  </div>
+</div>
+{% endblock %}

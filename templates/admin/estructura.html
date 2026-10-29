@@ -1,0 +1,95 @@
+{% extends "layout.html" %}
+{% from "_macros.html" import encabezado, estado, vacio %}
+{% block titulo %}Estructura académica{% endblock %}
+{% block contenido %}
+{{ encabezado("Estructura académica", "Años lectivos, periodos, grados, paralelos, áreas y materias.") }}
+<div class="row g-4">
+  <div class="col-xl-6">
+    <section class="card mb-4" aria-labelledby="t-anios">
+      <div class="card-header" id="t-anios">Años lectivos</div>
+      <ul class="list-group list-group-flush">
+        {% for a in anios %}
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+            <span><strong>{{ a.nombre }}</strong> <span class="text-secondary pequeno">{{ a.inicio.strftime("%d/%m/%Y") }} – {{ a.fin.strftime("%d/%m/%Y") }}</span></span>
+            {% if a.activo %}{{ estado("Activo", "ok") }}{% else %}
+              <form method="post" action="/admin/estructura/anios/{{ a.id }}/activar"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn btn-light">Activar</button></form>
+            {% endif %}
+          </li>
+        {% else %}<li class="list-group-item text-secondary">Sin años lectivos.</li>{% endfor %}
+      </ul>
+      <form method="post" action="/admin/estructura/anios" class="card-body row g-2 align-items-end border-top">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <div class="col-12"><label class="form-label" for="anio-nombre">Nombre</label><input id="anio-nombre" name="nombre" class="form-control" placeholder="2027-2028" required maxlength="20"></div>
+        <div class="col-sm-5"><label class="form-label" for="anio-inicio">Inicio</label><input id="anio-inicio" type="date" name="inicio" class="form-control" required></div>
+        <div class="col-sm-5"><label class="form-label" for="anio-fin">Fin</label><input id="anio-fin" type="date" name="fin" class="form-control" required></div>
+        <div class="col-sm-2"><button class="btn btn-primary w-100">Crear</button></div>
+      </form>
+      <p class="card-body pt-0 pequeno text-secondary mb-0">Activar otro año cambia los salones visibles en todo el portal.</p>
+    </section>
+
+    <section class="card" aria-labelledby="t-periodos">
+      <div class="card-header" id="t-periodos">Periodos de calificación {% if anio %}· {{ anio.nombre }}{% endif %}</div>
+      <ul class="list-group list-group-flush">
+        {% for p in periodos %}
+          <li class="list-group-item d-flex justify-content-between"><span>{{ p.nombre }}</span><span class="text-secondary pequeno">{{ p.inicio.strftime("%d/%m/%Y") }} – {{ p.fin.strftime("%d/%m/%Y") }}</span></li>
+        {% else %}<li class="list-group-item text-secondary">Sin periodos.</li>{% endfor %}
+      </ul>
+      {% if anio %}
+      <form method="post" action="/admin/estructura/periodos" class="card-body row g-2 align-items-end border-top">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <div class="col-12"><label class="form-label" for="p-nombre">Nombre</label><input id="p-nombre" name="nombre" class="form-control" placeholder="Primer trimestre" required maxlength="40"></div>
+        <div class="col-sm-5"><label class="form-label" for="p-inicio">Inicio</label><input id="p-inicio" type="date" name="inicio" class="form-control" required></div>
+        <div class="col-sm-5"><label class="form-label" for="p-fin">Fin</label><input id="p-fin" type="date" name="fin" class="form-control" required></div>
+        <div class="col-sm-2"><button class="btn btn-primary w-100">Crear</button></div>
+      </form>
+      {% endif %}
+    </section>
+  </div>
+
+  <div class="col-xl-6">
+    <section class="card mb-4" aria-labelledby="t-grados">
+      <div class="card-header" id="t-grados">Niveles, grados y paralelos</div>
+      <div class="card-body">
+        {% for orden, grupo in grados | groupby("nivel.orden") %}
+          <p class="mb-1 fw-semibold">{{ grupo[0].nivel.nombre }}</p>
+          <p class="text-secondary">{{ grupo | map(attribute="nombre") | join(", ") }}</p>
+        {% endfor %}
+        <p class="mb-2 fw-semibold">Paralelos</p>
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+          {% for p in paralelos %}{{ estado(p.nombre, "neutro") }}{% endfor %}
+          <form method="post" action="/admin/estructura/paralelos" class="d-flex gap-2">
+            <input type="hidden" name="csrf" value="{{ csrf }}">
+            <label class="visually-hidden" for="paralelo">Nuevo paralelo</label>
+            <input id="paralelo" name="nombre" class="form-control ancho-corto" maxlength="4" placeholder="C" required>
+            <button class="btn btn-light">Agregar</button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="t-materias">
+      <div class="card-header" id="t-materias">Áreas y materias</div>
+      <div class="card-body">
+        {% for area in areas %}
+          <p class="mb-1 fw-semibold">{{ area.nombre }}</p>
+          <p class="text-secondary">{{ materias | selectattr("area_id", "equalto", area.id) | map(attribute="nombre") | join(", ") or "Sin materias" }}</p>
+        {% else %}{{ vacio("bi-book", "Sin áreas.") }}{% endfor %}
+        <div class="row g-3 mt-1">
+          <form method="post" action="/admin/estructura/areas" class="col-12 d-flex gap-2 align-items-end">
+            <input type="hidden" name="csrf" value="{{ csrf }}">
+            <div class="flex-grow-1"><label class="form-label" for="area">Nueva área</label><input id="area" name="nombre" class="form-control" maxlength="80" required></div>
+            <button class="btn btn-light">Crear</button>
+          </form>
+          <form method="post" action="/admin/estructura/materias" class="col-12 d-flex flex-wrap gap-2 align-items-end">
+            <input type="hidden" name="csrf" value="{{ csrf }}">
+            <div class="flex-grow-1"><label class="form-label" for="materia">Nueva materia</label><input id="materia" name="nombre" class="form-control" maxlength="80" required></div>
+            <div><label class="form-label" for="materia-area">Área</label>
+              <select id="materia-area" name="area_id" class="form-select" required><option value="">Elija…</option>{% for a in areas %}<option value="{{ a.id }}">{{ a.nombre }}</option>{% endfor %}</select></div>
+            <button class="btn btn-light">Crear</button>
+          </form>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,24 @@
+{% extends "acceso/base.html" %}
+{% block titulo %}Configurar verificación en dos pasos{% endblock %}
+{% block contenido %}
+<div class="card"><div class="card-body p-4">
+  <h1 class="h4">Configure la verificación en dos pasos</h1>
+  <p class="text-secondary">Su rol maneja datos de alumnos, así que este paso es obligatorio. Solo se hace una vez.</p>
+  <ol class="ps-3">
+    <li class="mb-2">Instale una aplicación de autenticación (por ejemplo, Google Authenticator, Microsoft Authenticator o Aegis).</li>
+    <li class="mb-2">Escanee este código o escriba la clave a mano.
+      <div class="text-center my-3"><span class="qr">{{ qr }}</span></div>
+      <div class="pequeno text-secondary">Clave: <span class="secreto">{{ secreto }}</span></div>
+    </li>
+    <li>Escriba el código de 6 dígitos que muestra la aplicación.</li>
+  </ol>
+  {% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
+  {% if codigo_demo %}<div class="alert alert-info pequeno">Demo: el código vigente es <strong class="secreto">{{ codigo_demo }}</strong>.</div>{% endif %}
+  <form method="post" action="/ingresar/configurar-totp">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label for="codigo" class="form-label">Código de la aplicación</label>
+    <input id="codigo" name="codigo" class="form-control form-control-lg secreto mb-3" required inputmode="numeric" pattern="\d{6}" maxlength="6" autocomplete="one-time-code">
+    <button type="submit" class="btn btn-primary w-100">Activar y continuar</button>
+  </form>
+</div></div>
+{% endblock %}

@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="es-EC">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}Ingresar{% endblock %} · Escuela demo</title>
+  <link rel="stylesheet" href="/static/vendor/bootstrap/bootstrap.min.css">
+  <link rel="stylesheet" href="/static/vendor/bootstrap-icons/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+  <main class="acceso">
+    <div class="acceso-caja">
+      <div class="marca"><span class="logo"><i class="bi bi-mortarboard-fill" aria-hidden="true"></i></span> Escuela demo</div>
+      {% block contenido %}{% endblock %}
+      {% if demo %}<p class="text-center text-secondary pequeno mt-3 mb-0">Demostración de portafolio con datos ficticios.</p>{% endif %}
+    </div>
+  </main>
+  <script src="/static/vendor/bootstrap/bootstrap.bundle.min.js"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

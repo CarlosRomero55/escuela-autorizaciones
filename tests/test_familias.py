@@ -1,26 +1,22 @@
 import hashlib
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from app import crypto, security
 from app.models import AdultoAutorizado, BitacoraAuditoria, RespuestaAutorizacion, TokenAcceso
-from tests.conftest import CSRF, SETTINGS, sesion_admin
+from tests.conftest import CSRF, SETTINGS, crear_alumno, crear_salon, sesion_admin
 
-LIMITE = (datetime.now(timezone.utc) + timedelta(days=10)).isoformat()
+LIMITE = (datetime.now(UTC) + timedelta(days=10)).isoformat()
 TEXTO = "Autorizo la salida pedagógica de mi representado."
 TEXTO_HASH = hashlib.sha256(TEXTO.encode("utf-8")).hexdigest()
 
 
-def _preparar(client, salon_nombre="1A"):
+def _preparar(client, sf, salon_nombre="5.º A"):
     """Crea salón, alumno, familia vinculada y una campaña para ese salón."""
-    salon = client.post("/api/salones", json={"nombre": salon_nombre, "grado": "1ro"}, headers=CSRF).json()
-    alumno = client.post(
-        "/api/alumnos",
-        json={"codigo_interno": f"A-{salon_nombre}", "nombre": f"Alumno {salon_nombre}", "salon_id": salon["id"]},
-        headers=CSRF,
-    ).json()
+    salon = {"id": crear_salon(sf, salon_nombre)}
+    alumno = {"id": crear_alumno(sf, salon["id"], "Alumno", salon_nombre)}
     familia = client.post("/api/familias", json={"nombre_familia": f"Familia {salon_nombre}"}, headers=CSRF).json()
     client.post(f"/api/familias/{familia['id']}/alumnos", json={"alumno_id": alumno["id"]}, headers=CSRF)
     campana = client.post("/api/campanas", json={
@@ -55,13 +51,13 @@ def _formulario(alumno_id, texto_hash=TEXTO_HASH, decision="aceptada"):
 
 def test_enlace_muestra_alumnos_y_autorizaciones(app, session_factory):
     admin = sesion_admin(TestClient(app), session_factory)
-    _, alumno, familia, campana = _preparar(admin)
+    _, alumno, familia, campana = _preparar(admin, session_factory)
     url = _enlace(admin, familia["id"])
 
     familia_web = TestClient(app)  # sin sesión de personal
     r = familia_web.get(url)
     assert r.status_code == 200
-    assert "Alumno 1A" in r.text
+    assert "Alumno 5.º A" in r.text
     assert "Salida al parque" in r.text
     assert "Revisar y responder" in r.text
 
@@ -74,18 +70,18 @@ def test_enlace_invalido_responde_404(app):
 
 def test_enlace_expirado_responde_404(app, session_factory):
     admin = sesion_admin(TestClient(app), session_factory)
-    _, _, familia, _ = _preparar(admin)
+    _, _, familia, _ = _preparar(admin, session_factory)
     url = _enlace(admin, familia["id"])
     with session_factory() as db:
         registro = db.scalar(select(TokenAcceso))
-        registro.expira_en = datetime.now(timezone.utc) - timedelta(minutes=1)
+        registro.expira_en = datetime.now(UTC) - timedelta(minutes=1)
         db.commit()
     assert TestClient(app).get(url).status_code == 404
 
 
 def test_nuevo_enlace_invalida_el_anterior(app, session_factory):
     admin = sesion_admin(TestClient(app), session_factory)
-    _, _, familia, _ = _preparar(admin)
+    _, _, familia, _ = _preparar(admin, session_factory)
     primero = _enlace(admin, familia["id"])
     segundo = _enlace(admin, familia["id"])
     publico = TestClient(app)
@@ -95,7 +91,7 @@ def test_nuevo_enlace_invalida_el_anterior(app, session_factory):
 
 def test_el_token_se_guarda_como_hash(app, session_factory):
     admin = sesion_admin(TestClient(app), session_factory)
-    _, _, familia, _ = _preparar(admin)
+    _, _, familia, _ = _preparar(admin, session_factory)
     token = _token_de(_enlace(admin, familia["id"]))
     with session_factory() as db:
         guardado = db.scalar(select(TokenAcceso))
@@ -107,7 +103,7 @@ def test_el_token_se_guarda_como_hash(app, session_factory):
 
 def test_autorizacion_guarda_evidencia_y_bitacora(app, session_factory):
     admin = sesion_admin(TestClient(app), session_factory)
-    _, alumno, familia, campana = _preparar(admin)
+    _, alumno, familia, campana = _preparar(admin, session_factory)
     url = _enlace(admin, familia["id"])
     publico = TestClient(app)
 
@@ -133,7 +129,7 @@ def test_autorizacion_guarda_evidencia_y_bitacora(app, session_factory):
 
 def test_texto_alterado_se_rechaza(app, session_factory):
     admin = sesion_admin(TestClient(app), session_factory)
-    _, alumno, familia, campana = _preparar(admin)
+    _, alumno, familia, campana = _preparar(admin, session_factory)
     url = _enlace(admin, familia["id"])
     r = TestClient(app).post(
         f"{url}/campanas/{campana['id']}",
@@ -147,7 +143,7 @@ def test_texto_alterado_se_rechaza(app, session_factory):
 
 def test_respuesta_duplicada_se_rechaza(app, session_factory):
     admin = sesion_admin(TestClient(app), session_factory)
-    _, alumno, familia, campana = _preparar(admin)
+    _, alumno, familia, campana = _preparar(admin, session_factory)
     url = _enlace(admin, familia["id"])
     publico = TestClient(app)
     ruta = f"{url}/campanas/{campana['id']}"
@@ -160,8 +156,8 @@ def test_respuesta_duplicada_se_rechaza(app, session_factory):
 
 def test_no_se_puede_responder_por_alumno_no_vinculado(app, session_factory):
     admin = sesion_admin(TestClient(app), session_factory)
-    _, alumno_a, familia_a, campana = _preparar(admin, "1A")
-    _, alumno_b, _, _ = _preparar(admin, "1B")  # alumno de otra familia
+    _, alumno_a, familia_a, campana = _preparar(admin, session_factory, "5.º A")
+    _, alumno_b, _, _ = _preparar(admin, session_factory, "5.º B")  # alumno de otra familia
     url = _enlace(admin, familia_a["id"])
     r = TestClient(app).post(f"{url}/campanas/{campana['id']}", data=_formulario(alumno_b["id"]), follow_redirects=False)
     assert r.status_code == 404
@@ -169,8 +165,8 @@ def test_no_se_puede_responder_por_alumno_no_vinculado(app, session_factory):
 
 def test_campana_de_otro_salon_no_aplica(app, session_factory):
     admin = sesion_admin(TestClient(app), session_factory)
-    _, alumno_a, familia_a, _ = _preparar(admin, "1A")
-    otro_salon = admin.post("/api/salones", json={"nombre": "2B", "grado": "2do"}, headers=CSRF).json()
+    _, alumno_a, familia_a, _ = _preparar(admin, session_factory, "5.º A")
+    otro_salon = {"id": crear_salon(session_factory, "3.º A")}
     campana_b = admin.post("/api/campanas", json={
         "titulo": "Vacuna", "tipo": "vacuna", "texto_legal": TEXTO,
         "fecha_limite": LIMITE, "salon_ids": [otro_salon["id"]],
@@ -182,8 +178,8 @@ def test_campana_de_otro_salon_no_aplica(app, session_factory):
 
 def test_comprobante_solo_visible_para_la_familia_dueña(app, session_factory):
     admin = sesion_admin(TestClient(app), session_factory)
-    _, alumno, familia, campana = _preparar(admin, "1A")
-    _, _, familia_b, _ = _preparar(admin, "1B")
+    _, alumno, familia, campana = _preparar(admin, session_factory, "5.º A")
+    _, _, familia_b, _ = _preparar(admin, session_factory, "5.º B")
     url_a = _enlace(admin, familia["id"])
     url_b = _enlace(admin, familia_b["id"])
     publico = TestClient(app)
@@ -197,7 +193,7 @@ def test_comprobante_solo_visible_para_la_familia_dueña(app, session_factory):
 
 def test_documento_se_guarda_cifrado_y_con_hash(app, session_factory):
     admin = sesion_admin(TestClient(app), session_factory)
-    _, alumno, familia, _ = _preparar(admin)
+    _, alumno, familia, _ = _preparar(admin, session_factory)
     url = _enlace(admin, familia["id"])
     r = TestClient(app).post(f"{url}/adultos", data={
         "alumno_id": str(alumno["id"]),
@@ -222,7 +218,7 @@ def test_documento_se_guarda_cifrado_y_con_hash(app, session_factory):
 
 def test_maximo_dos_adultos_por_alumno(app, session_factory):
     admin = sesion_admin(TestClient(app), session_factory)
-    _, alumno, familia, _ = _preparar(admin)
+    _, alumno, familia, _ = _preparar(admin, session_factory)
     url = _enlace(admin, familia["id"])
     publico = TestClient(app)
     datos = {"alumno_id": str(alumno["id"]), "parentesco": "tía", "nombre": "Adulta Ficticia"}

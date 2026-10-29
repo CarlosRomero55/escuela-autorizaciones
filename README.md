@@ -1,37 +1,36 @@
-# escuela-autorizaciones
+# Sistema escolar
 
-Proyecto de portafolio: aplicación web para que una escuela recolecte autorizaciones digitales (salidas, vacunas, eventos) y controle quién recoge a cada alumno en portería.
+Proyecto de portafolio: sistema web para una escuela primaria de Ecuador, con portales por rol (administración, coordinación, directivos, docentes, consejería, auditoría, portería, representantes y estudiantes), gestión académica y un módulo de autorizaciones y recogida de alumnos.
 
-> **Aviso:** es un proyecto demostrativo con datos completamente ficticios. No debe usarse con datos reales de menores sin una revisión legal de protección de datos personales.
-
-## Qué resuelve
-
-- **Coordinación:** crea campañas de autorización, ve el avance por salón, valida a las personas autorizadas a recoger, genera enlaces para las familias e importa alumnos desde Excel (CSV).
-- **Familias:** responden desde un enlace personal en el navegador del teléfono, sin crear cuenta ni instalar nada, y registran hasta dos personas autorizadas.
-- **Portería:** verifica en segundos si quien llega está autorizado, con un código de un solo uso, y registra el protocolo cuando llega alguien no autorizado.
+> **Aviso:** es un proyecto demostrativo con datos completamente ficticios. No debe usarse con datos reales de menores sin una revisión legal conforme a la Ley Orgánica de Protección de Datos Personales de Ecuador.
 
 ## Estado
 
-En desarrollo. Implementado y con 93 pruebas automatizadas (SQLite y PostgreSQL):
+| Fase | Contenido | Estado |
+|---|---|---|
+| 1 | Layout y sistema de diseño, roles con ámbito, motor de permisos, sesiones en servidor, dispositivos y alertas, TOTP por rol, activación y recuperación de cuentas, estructura académica, salones, asignaciones y matrículas | **Hecha** |
+| 6 | Autorizaciones digitales, enlaces firmados para familias, códigos de recogida de un solo uso, persona no autorizada | Backend y página de familias hechos; falta la PWA de portería |
+| 3 | Portal docente y estudiante: tareas, entregas, rúbricas, calificaciones | Siguiente |
+| 2, 4, 5, 7–11 | Sitio público, portal del representante, boletines, bienestar, directivos, evaluaciones, operación | Diseño en [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md) |
 
-- Panel de administración en HTML, sin JavaScript, con token CSRF en cada formulario
-- Inicio de sesión del personal por roles, con argon2 y segundo factor TOTP opcional
-- Campañas con texto legal fijado por hash, avance por salón y exportación CSV protegida contra inyección de fórmulas
-- Importación de alumnos desde CSV con vista previa, detección de duplicados y reporte de errores
-- Enlaces firmados para familias (128 bits, guardados como HMAC, con vencimiento)
-- Número de documento cifrado con AES-256-GCM
-- Portería: códigos de recogida de un solo uso con intentos limitados, recogidas, persona no autorizada y autorizaciones temporales
-- Sincronización sin duplicados (identificador único por evento) lista en la API
-- Bitácora de auditoría inmutable (trigger en PostgreSQL)
+Calidad: **156 pruebas** (en SQLite y PostgreSQL), que incluyen los intentos de acceso cruzado entre roles, y una comprobación de que la migración coincide con el modelo. Lint con ruff e integración continua en GitHub Actions.
 
-Pendiente: PWA de portería con modo sin conexión, mensajería por WhatsApp, comprobante en PDF y despliegue público.
+## Lo más destacado
+
+- **Permisos por relación real con los datos:** un representante solo ve a sus representados validados y un docente solo a los alumnos de sus salones. Fuera de alcance, la respuesta es igual a la de un recurso inexistente. Ver [docs/PERMISOS.md](docs/PERMISOS.md).
+- **El administrador justifica cada consulta** a datos de un alumno; el motivo queda en una bitácora que PostgreSQL no permite modificar ni borrar.
+- **Sesiones en el servidor:** lista de dispositivos, cierre remoto, expiración por inactividad, rotación del token al ingresar y alerta cuando se usa un dispositivo nuevo, con botón "No fui yo".
+- **Segundo factor obligatorio por rol**, con enrolamiento guiado por código QR generado en el servidor.
+- **Sin secretos en claro:** argon2 para contraseñas; HMAC para tokens y códigos; AES-256-GCM para documentos y secretos TOTP.
+- **CSP estricta:** Bootstrap, HTMX, iconos y la fuente Inter se sirven desde el propio servidor. No hay CDN ni scripts en línea.
+- **Diseño responsive** probado a 390 px (teléfono), 1366 px (Chromebook) y 1440 px (escritorio). Ver [docs/ESTILO.md](docs/ESTILO.md).
 
 ## Probarlo localmente
 
 Requisitos: Python 3.12 o superior y Docker (para PostgreSQL).
 
 ```bash
-cp .env.example .env          # completar las claves (ver comentarios en el archivo)
+cp .env.example .env          # completar TOKEN_HMAC_KEY, ENCRYPTION_KEY y DEMO_PASSWORD
 docker compose up -d db
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
@@ -39,62 +38,61 @@ python scripts/seed.py        # crea las tablas y carga los datos ficticios
 uvicorn app.main:create_app --factory --reload
 ```
 
-Abra http://localhost:8000 e inicie sesión como `sofia@demo.test` con la contraseña definida en `DEMO_PASSWORD`. El script imprime además tres enlaces de familia para ver la experiencia desde el teléfono.
+Abra http://localhost:8000. Con `DEMO_MODE=true`, la pantalla de acceso muestra los usuarios de prueba y, para el personal, el código de verificación vigente, de modo que la demo se recorre sin una aplicación de autenticación.
 
-### Datos de demostración
-
-| Elemento | Cantidad |
+| Usuario | Rol |
 |---|---|
-| Salones | 3 (1A, 2A, 3A) |
-| Alumnos | 60, con hermanos que comparten familia |
-| Personas autorizadas | 2 por alumno; algunas pendientes de validar |
-| Campañas | 2, con respuestas parciales |
-| Usuarios | `sofia@demo.test` (coordinación), `admin@demo.test`, `porteria@demo.test`, `maestra@demo.test` |
+| `admin` | Administración |
+| `sofia` | Coordinación (autorizaciones y recogida) |
+| `rector` | Directivo de toda la escuela |
+| `dir.matematica` | Directivo del área de Matemática |
+| `docente` | Docente tutora de 5.º A; además es representante (prueba el cambio de rol) |
+| `representante` | Representante de dos hermanos |
+| `estudiante` | Estudiante de 5.º A |
+| `consejeria`, `auditor`, `porteria` | Roles con alcance restringido |
+
+Datos cargados: año lectivo 2026-2027 (régimen Costa), 3 niveles, 6 salones, 120 alumnos, 110 familias, 8 docentes con asignaciones completas y 2 campañas de autorización con respuestas parciales.
 
 ## Pruebas
 
 ```bash
 pytest                                     # SQLite en memoria
 TEST_POSTGRES_URL=postgresql+psycopg://escuela:escuela_dev@localhost:5432/escuela_test pytest
+ruff check .
 ```
-
-La segunda forma también verifica que la bitácora rechace `UPDATE` y `DELETE` en PostgreSQL.
 
 ## Estructura
 
 ```
 app/
-  main.py        aplicación FastAPI, cabeceras de seguridad y CSRF de la API
-  config.py      configuración desde variables de entorno
-  models.py      modelo de datos (SQLAlchemy 2)
-  services.py    reglas de negocio compartidas por la API y el panel
-  security.py    contraseñas, tokens, códigos de recogida y TOTP
-  crypto.py      cifrado AES-256-GCM de datos sensibles
-  auth.py        inicio de sesión y TOTP
-  seed.py        datos ficticios de la demo
-  routers/       panel HTML, API de administración, familias y portería
-migrations/      migraciones de Alembic
-scripts/         carga de datos de demostración
-templates/       páginas del panel y de las familias (Jinja2)
-static/          estilos
-tests/           pruebas con pytest
+  main.py         aplicación, cabeceras de seguridad, manejo de errores
+  config.py       configuración por variables de entorno
+  models.py       modelo de datos (SQLAlchemy 2)
+  permisos.py     roles, funciones y alcance sobre los datos
+  sesiones.py     sesiones en servidor, dispositivos y alertas
+  auth.py         credenciales, bloqueo, TOTP, enlaces de cuenta
+  services.py     reglas de negocio compartidas por la API y las páginas
+  web.py          capa web: sesión, CSRF, menú por rol, renderizado
+  security.py     contraseñas, tokens, códigos, política de contraseñas
+  crypto.py       cifrado AES-256-GCM
+  seed.py         datos ficticios
+  routers/        acceso, portal, administración, familias, portería, API
+migrations/       migraciones de Alembic
+templates/        layout, macros y páginas (Jinja2)
+static/           app.css, app.js y librerías incluidas (vendor/)
+docs/             arquitectura, permisos y guía de estilo
+tests/            pruebas con pytest
 ```
-
-## Decisiones de diseño
-
-- **Formularios HTML clásicos en el panel:** funcionan en cualquier navegador, no necesitan compilación y respetan una CSP estricta (`script-src 'self'`).
-- **Reglas de negocio en `services.py`:** la API y el panel aplican exactamente las mismas validaciones y escriben la misma bitácora.
-- **La bitácora se escribe en la misma transacción que la acción:** si la acción falla, no queda registrada como hecha.
-- **Los secretos nunca se guardan en claro:** contraseñas con argon2; tokens y códigos como HMAC; documentos cifrados con una clave fuera de la base de datos.
 
 ## Datos que se almacenan
 
-| Dato | Finalidad | Retención |
+| Dato | Finalidad | Protección |
 |---|---|---|
-| Nombre del alumno y salón | Organizar autorizaciones y recogidas | Hasta la anonimización de fin de año escolar |
-| Nombre, parentesco y teléfono de adultos autorizados | Validar quién puede recoger | Hasta fin del ciclo escolar |
-| Número de documento, cifrado, y su HMAC para búsquedas | Verificar identidad en portería | Igual que el adulto |
-| Respuestas de autorización: firmante, decisión, fecha, IP, navegador y hash del texto | Evidencia de consentimiento | Según la política de la escuela |
-| Bitácora de auditoría (sin documentos ni teléfonos) | Trazabilidad de acciones | Igual que los datos asociados |
+| Nombres de personas, alumnos y salones | Organización académica | Acceso por rol y relación |
+| Usuario, correo y contraseña del personal y las familias | Acceso al portal | argon2; correo enmascarado en administración |
+| Sesiones y dispositivos | Seguridad de la cuenta | Token como HMAC; huella del dispositivo como HMAC |
+| Documento de adultos autorizados | Verificar identidad en portería | AES-256-GCM + HMAC |
+| Respuestas de autorización: firmante, fecha, IP, navegador y hash del texto | Evidencia de consentimiento | Solo coordinación y administración |
+| Bitácora (sin documentos, teléfonos ni correos) | Trazabilidad | Inmutable en PostgreSQL |
 
-La tarea de anonimización se implementará junto con los procesos en segundo plano, con fecha configurable.
+La retención por tipo de dato y la anonimización al cierre del año lectivo se implementan con los procesos en segundo plano.

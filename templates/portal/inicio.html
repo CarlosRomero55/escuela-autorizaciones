@@ -1,0 +1,156 @@
+{% extends "layout.html" %}
+{% from "_macros.html" import encabezado, indicador, vacio, estado %}
+{% block titulo %}Inicio{% endblock %}
+{% block contenido %}
+{% set saludo = "Hola, " ~ usuario.persona.nombres %}
+{% set sub = (ETIQUETAS_ROL[actor.rol] ~ (" · Año lectivo " ~ anio.nombre if anio else " · Sin año lectivo activo")) %}
+{{ encabezado(saludo, sub) }}
+
+{% if actor.rol in ("administrador", "coordinacion") %}
+  <div class="row g-3 mb-4">
+    {{ indicador("bi-mortarboard", "azul", indicadores.alumnos, "alumnos matriculados", "/admin/alumnos" if actor.rol == "administrador" else None) }}
+    {{ indicador("bi-clipboard-check", "morado", campanas | length, "campañas abiertas", "/admin/campanas") }}
+    {{ indicador("bi-person-check", "ambar", indicadores.por_validar, "personas por validar", "/admin/adultos") }}
+    {% if actor.rol == "administrador" %}
+      {{ indicador("bi-people", "verde", indicadores.usuarios, "usuarios activos", "/admin/usuarios") }}
+    {% else %}
+      {{ indicador("bi-exclamation-octagon", "rojo", indicadores.incidentes, "incidentes en 7 días") }}
+    {% endif %}
+  </div>
+  {% if actor.rol == "administrador" and not anio %}
+    <div class="alert alert-warning">No hay un año lectivo activo. <a href="/admin/estructura">Configúrelo en Estructura académica</a>.</div>
+  {% endif %}
+  <div class="card">
+    <div class="card-header">Campañas de autorización abiertas</div>
+    {% if campanas %}
+    <div class="table-responsive">
+      <table class="table tabla-tarjetas">
+        <thead><tr><th scope="col">Campaña</th><th scope="col">Cierra</th><th scope="col">Avance</th><th scope="col">Pendientes</th></tr></thead>
+        <tbody>
+        {% for item in campanas %}
+          <tr>
+            <td data-label="Campaña"><a href="/admin/campanas/{{ item.campana.id }}">{{ item.campana.titulo }}</a></td>
+            <td data-label="Cierra">{{ item.campana.fecha_limite | local }}</td>
+            <td data-label="Avance"><progress max="100" value="{{ item.totales.avance }}" aria-label="Avance">{{ item.totales.avance }} %</progress> {{ item.totales.avance }} %</td>
+            <td data-label="Pendientes">{{ item.totales.pendientes }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}{{ vacio("bi-clipboard", "No hay campañas abiertas.") }}{% endif %}
+  </div>
+
+{% elif actor.rol == "docente" %}
+  <div class="row g-3 mb-4">
+    {{ indicador("bi-easel", "azul", asignaciones | length, "clases asignadas") }}
+    {{ indicador("bi-star", "morado", tutorias | length, "salones como tutor/a") }}
+    {{ indicador("bi-mortarboard", "verde", conteos.values() | sum, "alumnos en sus salones") }}
+    {{ indicador("bi-journal-check", "ambar", "—", "tareas (llega en la Fase 3)") }}
+  </div>
+  <h2 class="h5 mb-3">Mis clases</h2>
+  {% if asignaciones %}
+  <div class="row g-3">
+    {% for asignacion, salon in asignaciones %}
+      <div class="col-sm-6 col-xl-4">
+        <a class="card tarjeta-salon" href="/portal/salones/{{ salon.id }}">
+          <div class="franja franja-{{ asignacion.materia_id % 6 }}">{{ asignacion.materia.nombre }}</div>
+          <div class="card-body">
+            <div class="fw-semibold">{{ salon.nombre }}</div>
+            <div class="text-secondary pequeno">{{ conteos.get(salon.id, 0) }} alumnos{% if salon.tutor_id == usuario.id %} · Usted es tutor/a{% endif %}</div>
+          </div>
+        </a>
+      </div>
+    {% endfor %}
+  </div>
+  {% else %}<div class="card">{{ vacio("bi-easel", "Todavía no tiene clases asignadas en el año activo.") }}</div>{% endif %}
+
+{% elif actor.rol == "directivo" %}
+  <div class="row g-3 mb-4">
+    {{ indicador("bi-easel", "azul", tarjetas | length, "salones de su alcance") }}
+    {{ indicador("bi-person-video3", "morado", docentes | length, "docentes") }}
+    {{ indicador("bi-mortarboard", "verde", alumnos, "alumnos") }}
+    {{ indicador("bi-diagram-3", "ambar", nombres_areas, "alcance") }}
+  </div>
+  <div class="row g-4">
+    <div class="col-lg-7">
+      <h2 class="h5 mb-3">Salones</h2>
+      <div class="row g-3">
+        {% for t in tarjetas %}
+          <div class="col-sm-6">
+            <a class="card tarjeta-salon" href="/portal/salones/{{ t.salon.id }}">
+              <div class="franja franja-{{ t.salon.id % 6 }}">{{ t.salon.nombre }}</div>
+              <div class="card-body pequeno text-secondary">{{ t.alumnos }} alumnos · Tutor/a: {{ t.salon.tutor.nombre if t.salon.tutor else "sin asignar" }}</div>
+            </a>
+          </div>
+        {% else %}<div class="col-12"><div class="card">{{ vacio("bi-easel", "No hay salones en su alcance.") }}</div></div>{% endfor %}
+      </div>
+    </div>
+    <div class="col-lg-5">
+      <div class="card">
+        <div class="card-header">Docentes</div>
+        <ul class="list-group list-group-flush">
+          {% for docente, clases in docentes %}
+            <li class="list-group-item d-flex justify-content-between align-items-center"><span>{{ docente.nombre }}</span><span class="text-secondary pequeno">{{ clases }} clase{{ "s" if clases != 1 }}</span></li>
+          {% else %}<li class="list-group-item text-secondary">Sin docentes asignados.</li>{% endfor %}
+        </ul>
+        <div class="card-body pequeno text-secondary">El seguimiento de cumplimiento por docente llega en la Fase 8.</div>
+      </div>
+    </div>
+  </div>
+
+{% elif actor.rol == "estudiante" %}
+  {% if salon %}
+  <div class="row g-3 mb-4">
+    {{ indicador("bi-easel", "azul", salon.nombre, "mi salón", "/portal/salones/" ~ salon.id) }}
+    {{ indicador("bi-book", "morado", materias | length, "materias") }}
+    {{ indicador("bi-person-heart", "verde", salon.tutor.persona.nombres if salon.tutor else "—", "tutor/a") }}
+    {{ indicador("bi-journal-check", "ambar", "—", "tareas (llega en la Fase 3)") }}
+  </div>
+  <h2 class="h5 mb-3">Mis materias</h2>
+  <div class="row g-3">
+    {% for m in materias %}
+      <div class="col-sm-6 col-xl-4">
+        <div class="card tarjeta-salon">
+          <div class="franja franja-{{ m.materia_id % 6 }}">{{ m.materia.nombre }}</div>
+          <div class="card-body">
+            <div class="text-secondary pequeno">{{ m.docente.nombre if m.docente else "Docente por asignar" }}</div>
+            <div class="pequeno mt-1">Sin tareas publicadas</div>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+  {% else %}<div class="card">{{ vacio("bi-easel", "No tiene una matrícula activa en el año lectivo actual.") }}</div>{% endif %}
+
+{% elif actor.rol == "representante" %}
+  <h2 class="h5 mb-3">Mis representados</h2>
+  <div class="row g-3">
+    {% for alumno, parentesco, salon in representados %}
+      <div class="col-sm-6 col-xl-4">
+        <a class="card tarjeta-salon" href="/portal/alumnos/{{ alumno.id }}">
+          <div class="franja franja-{{ alumno.id % 6 }}">{{ alumno.persona.nombres }}</div>
+          <div class="card-body">
+            <div class="fw-semibold">{{ alumno.nombre }}</div>
+            <div class="text-secondary pequeno">{{ salon.nombre if salon else "Sin salón" }} · Usted es {{ parentesco }}</div>
+          </div>
+        </a>
+      </div>
+    {% else %}
+      <div class="col-12"><div class="card">{{ vacio("bi-people", "La escuela todavía no ha vinculado a sus representados. Comuníquese con la secretaría.") }}</div></div>
+    {% endfor %}
+  </div>
+  <p class="text-secondary pequeno mt-3">Calificaciones, tareas y asistencia llegarán en las próximas fases.</p>
+
+{% else %}
+  <div class="card ancho-lectura"><div class="card-body">
+    {% if actor.rol == "auditor" %}
+      <p>Su acceso es de solo lectura. Puede consultar la <a href="/admin/bitacora">bitácora de auditoría</a>; cada consulta queda registrada.</p>
+    {% elif actor.rol == "consejeria" %}
+      <p>El módulo de derivaciones y planes de apoyo llega en la Fase 7, con revisión legal previa. Por ahora no tiene datos de alumnos a la vista.</p>
+    {% elif actor.rol == "porteria" %}
+      <p>La pantalla de portería con modo sin conexión llega en la Fase 6. La verificación de recogidas ya está disponible en la API.</p>
+    {% endif %}
+  </div></div>
+{% endif %}
+{% endblock %}

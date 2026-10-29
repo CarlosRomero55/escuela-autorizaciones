@@ -31,6 +31,34 @@ def verify_password(password_hash: str, password: str) -> bool:
         return False
 
 
+PASSWORD_MIN = 10
+PASSWORD_MAX = 128
+# Lista corta de contraseñas muy usadas; en producción conviene una lista más amplia
+_COMUNES = {
+    "1234567890", "contraseña", "contrasena", "password123", "qwertyuiop", "escuela2026",
+    "escuela123", "0987654321", "abcdefghij", "1111111111", "iloveyou12", "ecuador123",
+}
+
+
+def validar_password(password: str, *, login: str = "", email: str | None = None) -> list[str]:
+    """Devuelve la lista de problemas de la contraseña; vacía si cumple la política."""
+    errores = []
+    if len(password) < PASSWORD_MIN:
+        errores.append(f"Debe tener al menos {PASSWORD_MIN} caracteres.")
+    if len(password) > PASSWORD_MAX:
+        errores.append(f"Debe tener como máximo {PASSWORD_MAX} caracteres.")
+    if len(set(password)) < 4:
+        errores.append("Use caracteres más variados.")
+    minuscula = password.lower()
+    if minuscula in _COMUNES:
+        errores.append("Es una contraseña demasiado común.")
+    for dato in (login, (email or "").split("@")[0]):
+        if dato and len(dato) >= 3 and dato.lower() in minuscula:
+            errores.append("No debe contener su usuario ni su correo.")
+            break
+    return errores
+
+
 # ---------- Tokens de familia y secretos guardados como hash ----------
 
 def generate_token() -> str:

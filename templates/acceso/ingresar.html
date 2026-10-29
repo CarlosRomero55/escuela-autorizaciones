@@ -1,0 +1,32 @@
+{% extends "acceso/base.html" %}
+{% block titulo %}Ingresar al portal{% endblock %}
+{% block contenido %}
+<div class="card"><div class="card-body p-4">
+  <h1 class="h4 mb-1">Ingresar al portal</h1>
+  <p class="text-secondary mb-4">Use el usuario o correo que le entregó la escuela.</p>
+  {% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
+  <form method="post" action="/ingresar" novalidate>
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="mb-3">
+      <label for="identificador" class="form-label">Usuario o correo</label>
+      <input id="identificador" name="identificador" class="form-control" value="{{ identificador or '' }}" required autocomplete="username" autocapitalize="none">
+    </div>
+    <div class="mb-3">
+      <label for="password" class="form-label">Contraseña</label>
+      <input id="password" name="password" type="password" class="form-control" required autocomplete="current-password">
+    </div>
+    <button type="submit" class="btn btn-primary w-100">Ingresar</button>
+  </form>
+  <div class="text-center mt-3"><a href="/cuenta/recuperar">¿Olvidó su contraseña?</a></div>
+</div></div>
+
+{% if usuarios_demo %}
+<div class="card mt-3"><div class="card-body">
+  <h2 class="h6">Usuarios de demostración</h2>
+  <p class="text-secondary pequeno mb-2">Contraseña para todos: <code>{{ demo_password }}</code>. El personal usa verificación en dos pasos: en la demo, el código aparece en pantalla.</p>
+  <ul class="list-unstyled mb-0 pequeno">
+    {% for login, descripcion in usuarios_demo %}<li class="d-flex justify-content-between py-1 border-bottom"><code>{{ login }}</code><span class="text-secondary">{{ descripcion }}</span></li>{% endfor %}
+  </ul>
+</div></div>
+{% endif %}
+{% endblock %}

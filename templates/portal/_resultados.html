@@ -1,0 +1,15 @@
+{% if q | length >= 2 %}
+<div class="card shadow">
+  <div class="list-group list-group-flush">
+    {% for s in salones %}
+      <a class="list-group-item list-group-item-action" href="/portal/salones/{{ s.id }}"><i class="bi bi-easel me-2" aria-hidden="true"></i>{{ s.nombre }}</a>
+    {% endfor %}
+    {% for a in alumnos %}
+      <a class="list-group-item list-group-item-action" href="/portal/alumnos/{{ a.id }}"><i class="bi bi-person me-2" aria-hidden="true"></i>{{ a.nombre }}</a>
+    {% endfor %}
+    {% if not salones and not alumnos %}
+      <div class="list-group-item text-secondary">Sin resultados para «{{ q }}».</div>
+    {% endif %}
+  </div>
+</div>
+{% endif %}

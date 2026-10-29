@@ -1,53 +1,40 @@
-{% extends "admin/base.html" %}
+{% extends "layout.html" %}
+{% from "_macros.html" import encabezado, vacio %}
 {% block titulo %}Personas autorizadas{% endblock %}
 {% block contenido %}
-<h1>Personas autorizadas a recoger</h1>
-
-<nav class="pestanas" aria-label="Filtrar por estado">
+{{ encabezado("Personas autorizadas a recoger", "Registradas por las familias; portería solo ve a las validadas y vigentes.") }}
+<nav class="nav nav-pills gap-1 mb-3" aria-label="Filtrar por estado">
   {% for clave, texto in estados.items() %}
-    <a href="/admin/adultos?estado={{ clave }}"{% if clave == estado %} aria-current="page"{% endif %}>{{ texto }}</a>
+    <a class="nav-link{% if clave == estado %} active{% endif %}" href="/admin/adultos?estado={{ clave }}"{% if clave == estado %} aria-current="page"{% endif %}>{{ texto }}</a>
   {% endfor %}
 </nav>
-
-{% if estado == "pendiente" %}
-<p class="ayuda">Estas personas fueron registradas por las familias. Hasta que las valide, portería no las verá como autorizadas.</p>
-{% endif %}
-
-<div class="tabla">
-<table>
-  <thead><tr><th scope="col">Persona</th><th scope="col">Parentesco</th><th scope="col">Alumno</th><th scope="col">Salón</th><th scope="col">Documento</th><th scope="col">Tipo</th><th scope="col">Acción</th></tr></thead>
-  <tbody>
-  {% for adulto, alumno, salon in filas %}
-    <tr>
-      <td>{{ adulto.nombre }}</td>
-      <td>{{ adulto.parentesco }}</td>
-      <td>{{ alumno }}</td>
-      <td>{{ salon }}</td>
-      <td>{{ "Registrado (cifrado)" if adulto.documento_cifrado else "No indicado" }}</td>
-      <td>{% if adulto.temporal %}Temporal hasta {{ adulto.vigente_hasta | local }}{% else %}Permanente{% endif %}</td>
-      <td class="acciones">
-        {% if adulto.estado != "validado" %}
-        <form method="post" action="/admin/adultos/{{ adulto.id }}/estado" class="en-linea">
-          <input type="hidden" name="csrf" value="{{ csrf }}">
-          <input type="hidden" name="estado" value="validado">
-          <input type="hidden" name="volver_a" value="{{ estado }}">
-          <button type="submit" class="boton">Validar</button>
-        </form>
-        {% endif %}
-        {% if adulto.estado != "rechazado" %}
-        <form method="post" action="/admin/adultos/{{ adulto.id }}/estado" class="en-linea">
-          <input type="hidden" name="csrf" value="{{ csrf }}">
-          <input type="hidden" name="estado" value="rechazado">
-          <input type="hidden" name="volver_a" value="{{ estado }}">
-          <button type="submit" class="boton peligro">Rechazar</button>
-        </form>
-        {% endif %}
-      </td>
-    </tr>
-  {% else %}
-    <tr><td colspan="7">No hay personas en este estado.</td></tr>
-  {% endfor %}
-  </tbody>
-</table>
+<div class="card">
+  <div class="table-responsive">
+    <table class="table tabla-tarjetas">
+      <thead><tr><th scope="col">Persona</th><th scope="col">Parentesco</th><th scope="col">Alumno</th><th scope="col">Salón</th><th scope="col">Documento</th><th scope="col">Tipo</th><th scope="col"><span class="visually-hidden">Acciones</span></th></tr></thead>
+      <tbody>
+      {% for adulto, alumno, salon in filas %}
+        <tr>
+          <td data-label="Persona">{{ adulto.nombre }}</td>
+          <td data-label="Parentesco">{{ adulto.parentesco }}</td>
+          <td data-label="Alumno">{{ alumno }}</td>
+          <td data-label="Salón">{{ salon or "—" }}</td>
+          <td data-label="Documento">{{ "Registrado (cifrado)" if adulto.documento_cifrado else "No indicado" }}</td>
+          <td data-label="Tipo">{% if adulto.temporal %}Temporal hasta {{ adulto.vigente_hasta | local }}{% else %}Permanente{% endif %}</td>
+          <td data-label="" class="acciones text-end">
+            <div class="d-inline-flex gap-2">
+            {% if adulto.estado != "validado" %}
+              <form method="post" action="/admin/adultos/{{ adulto.id }}/estado"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="estado" value="validado"><input type="hidden" name="volver_a" value="{{ estado }}"><button class="btn btn-primary">Validar</button></form>
+            {% endif %}
+            {% if adulto.estado != "rechazado" %}
+              <form method="post" action="/admin/adultos/{{ adulto.id }}/estado"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="estado" value="rechazado"><input type="hidden" name="volver_a" value="{{ estado }}"><button class="btn btn-light text-danger">Rechazar</button></form>
+            {% endif %}
+            </div>
+          </td>
+        </tr>
+      {% else %}<tr><td colspan="7">{{ vacio("bi-person-check", "No hay personas en este estado.") }}</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 {% endblock %}

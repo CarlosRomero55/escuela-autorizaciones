@@ -1,0 +1,21 @@
+{% extends "acceso/base.html" %}
+{% block titulo %}Verificación en dos pasos{% endblock %}
+{% block contenido %}
+<div class="card"><div class="card-body p-4">
+  <span class="icono-circulo pastel-morado mb-3"><i class="bi bi-shield-lock" aria-hidden="true"></i></span>
+  <h1 class="h4">Verificación en dos pasos</h1>
+  <p class="text-secondary">Abra su aplicación de autenticación y escriba el código de 6 dígitos.</p>
+  {% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
+  {% if codigo_demo %}<div class="alert alert-info pequeno">Demo: el código vigente es <strong class="secreto">{{ codigo_demo }}</strong>.</div>{% endif %}
+  <form method="post" action="/ingresar/totp">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label for="codigo" class="form-label">Código</label>
+    <input id="codigo" name="codigo" class="form-control form-control-lg secreto mb-3" required inputmode="numeric" pattern="\d{6}" maxlength="6" autocomplete="one-time-code" autofocus>
+    <button type="submit" class="btn btn-primary w-100">Verificar</button>
+  </form>
+  <form method="post" action="/salir" class="text-center mt-3">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <button class="btn btn-link" type="submit">Cancelar</button>
+  </form>
+</div></div>
+{% endblock %}

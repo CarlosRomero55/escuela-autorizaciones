@@ -1,0 +1,30 @@
+{% extends "layout.html" %}
+{% from "_macros.html" import encabezado, vacio %}
+{% block titulo %}{{ salon.nombre }}{% endblock %}
+{% block contenido %}
+{{ encabezado(salon.nombre, salon.grado.nivel.nombre ~ " · Tutor/a: " ~ (salon.tutor.nombre if salon.tutor else "sin asignar")) }}
+<div class="row g-4">
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header">Materias y docentes</div>
+      <ul class="list-group list-group-flush">
+        {% for m in materias %}
+          <li class="list-group-item d-flex justify-content-between"><span>{{ m.materia.nombre }}</span><span class="text-secondary">{{ m.docente.nombre if m.docente else "Por asignar" }}</span></li>
+        {% else %}<li class="list-group-item text-secondary">Sin materias asignadas.</li>{% endfor %}
+      </ul>
+    </div>
+  </div>
+  {% if alumnos %}
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header">Alumnos ({{ alumnos | length }})</div>
+      <ul class="list-group list-group-flush">
+        {% for a in alumnos %}
+          <li class="list-group-item">{% if con_enlace %}<a href="/portal/alumnos/{{ a.id }}">{{ a.nombre }}</a>{% else %}{{ a.nombre }}{% endif %}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,18 @@
+{% extends "layout.html" %}
+{% from "_macros.html" import encabezado %}
+{% block titulo %}Justificar acceso{% endblock %}
+{% block contenido %}
+{{ encabezado("Datos de un alumno", "La administración debe indicar el motivo de cada consulta.") }}
+<div class="card ancho-lectura"><div class="card-body">
+  <p>Va a consultar la ficha de <strong>{{ alumno.nombre }}</strong>. El motivo quedará en la bitácora de auditoría, que no se puede modificar.</p>
+  <form method="post" action="/portal/alumnos/{{ alumno.id }}/acceso">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label for="motivo" class="form-label">Motivo</label>
+    <textarea id="motivo" name="motivo" class="form-control mb-3" rows="3" required minlength="10" maxlength="300" placeholder="Ej.: corregir el salón asignado por solicitud de secretaría"></textarea>
+    <div class="d-flex gap-2">
+      <button class="btn btn-primary" type="submit">Registrar motivo y ver</button>
+      <a class="btn btn-light" href="/admin/alumnos">Cancelar</a>
+    </div>
+  </form>
+</div></div>
+{% endblock %}

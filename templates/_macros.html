@@ -1,0 +1,48 @@
+{# Componentes reutilizables del sistema de diseño #}
+
+{% macro encabezado(titulo, subtitulo="") %}
+<div class="encabezado-pagina">
+  <div>
+    <h1>{{ titulo }}</h1>
+    {% if subtitulo %}<p>{{ subtitulo }}</p>{% endif %}
+  </div>
+  {% if caller %}<div class="d-flex flex-wrap gap-2">{{ caller() }}</div>{% endif %}
+</div>
+{% endmacro %}
+
+{% macro indicador(icono, color, cifra, etiqueta, url=None) %}
+<div class="col-6 col-xl-3">
+  {% if url %}<a class="card indicador" href="{{ url }}">{% else %}<div class="card indicador">{% endif %}
+    <span class="icono-circulo pastel-{{ color }}"><i class="bi {{ icono }}" aria-hidden="true"></i></span>
+    <span><span class="cifra d-block">{{ cifra }}</span><span class="etiqueta">{{ etiqueta }}</span></span>
+  {% if url %}</a>{% else %}</div>{% endif %}
+</div>
+{% endmacro %}
+
+{% macro estado(texto, tipo="neutro", icono=None) %}
+<span class="estado estado-{{ tipo }}">{% if icono %}<i class="bi {{ icono }}" aria-hidden="true"></i>{% endif %}{{ texto }}</span>
+{% endmacro %}
+
+{% macro vacio(icono, texto) %}
+<div class="vacio"><i class="bi {{ icono }}" aria-hidden="true"></i>{{ texto }}</div>
+{% endmacro %}
+
+{% macro csrf_input(csrf) %}<input type="hidden" name="csrf" value="{{ csrf }}">{% endmacro %}
+
+{% macro paginacion(request, pagina, paginas) %}
+{% if paginas > 1 %}
+<nav class="d-flex justify-content-between align-items-center p-3" aria-label="Paginación">
+  <span class="text-secondary pequeno">Página {{ pagina }} de {{ paginas }}</span>
+  <div class="d-flex gap-2">
+    {% if pagina > 1 %}<a class="btn btn-light" href="{{ url_con(request, pagina=pagina - 1) }}"><i class="bi bi-chevron-left" aria-hidden="true"></i> Anterior</a>{% endif %}
+    {% if pagina < paginas %}<a class="btn btn-light" href="{{ url_con(request, pagina=pagina + 1) }}">Siguiente <i class="bi bi-chevron-right" aria-hidden="true"></i></a>{% endif %}
+  </div>
+</nav>
+{% endif %}
+{% endmacro %}
+
+{% macro estado_respuesta(respuesta) %}
+{% if respuesta is none %}{{ estado("Pendiente", "alerta", "bi-hourglass-split") }}
+{% elif respuesta.decision == "aceptada" %}{{ estado("Autoriza", "ok", "bi-check-circle") }}
+{% else %}{{ estado("No autoriza", "error", "bi-x-circle") }}{% endif %}
+{% endmacro %}

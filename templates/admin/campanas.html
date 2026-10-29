@@ -1,53 +1,42 @@
-{% extends "admin/base.html" %}
+{% extends "layout.html" %}
+{% from "_macros.html" import encabezado, estado, vacio %}
 {% block titulo %}Campañas{% endblock %}
 {% block contenido %}
-<h1>Campañas de autorización</h1>
-
-<div class="tabla">
-<table>
-  <thead><tr><th scope="col">Campaña</th><th scope="col">Tipo</th><th scope="col">Cierra</th><th scope="col">Estado</th><th scope="col">Avance</th><th scope="col">Pendientes</th></tr></thead>
-  <tbody>
-  {% for item in filas %}
-    <tr>
-      <td><a href="/admin/campanas/{{ item.campana.id }}">{{ item.campana.titulo }}</a></td>
-      <td>{{ TIPOS[item.campana.tipo] }}</td>
-      <td>{{ item.campana.fecha_limite | local }}</td>
-      <td><span class="etiqueta {{ 'validado' if item.vigente else '' }}">{{ "Abierta" if item.vigente else "Cerrada" }}</span></td>
-      <td><progress max="100" value="{{ item.totales.avance }}" aria-label="Avance">{{ item.totales.avance }} %</progress> {{ item.totales.avance }} %</td>
-      <td>{{ item.totales.pendientes }}</td>
-    </tr>
-  {% else %}
-    <tr><td colspan="6">Todavía no hay campañas.</td></tr>
-  {% endfor %}
-  </tbody>
-</table>
+{{ encabezado("Campañas de autorización", "Salidas, vacunas y eventos con firma de los representantes.") }}
+<div class="card mb-4">
+  <div class="table-responsive">
+    <table class="table tabla-tarjetas">
+      <thead><tr><th scope="col">Campaña</th><th scope="col">Tipo</th><th scope="col">Cierra</th><th scope="col">Estado</th><th scope="col">Avance</th><th scope="col">Pendientes</th></tr></thead>
+      <tbody>
+      {% for item in filas %}
+        <tr>
+          <td data-label="Campaña"><a href="/admin/campanas/{{ item.campana.id }}">{{ item.campana.titulo }}</a></td>
+          <td data-label="Tipo">{{ TIPOS[item.campana.tipo] }}</td>
+          <td data-label="Cierra">{{ item.campana.fecha_limite | local }}</td>
+          <td data-label="Estado">{{ estado("Abierta", "ok") if item.vigente else estado("Cerrada", "neutro") }}</td>
+          <td data-label="Avance"><progress max="100" value="{{ item.totales.avance }}" aria-label="Avance">{{ item.totales.avance }} %</progress> {{ item.totales.avance }} %</td>
+          <td data-label="Pendientes">{{ item.totales.pendientes }}</td>
+        </tr>
+      {% else %}<tr><td colspan="6">{{ vacio("bi-clipboard", "Todavía no hay campañas.") }}</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 
-<section class="tarjeta">
-  <h2>Nueva campaña</h2>
-  <form method="post" action="/admin/campanas" class="formulario">
+<section class="card ancho-lectura" aria-labelledby="t-nueva">
+  <div class="card-header" id="t-nueva">Nueva campaña</div>
+  <form method="post" action="/admin/campanas" class="card-body row g-3">
     <input type="hidden" name="csrf" value="{{ csrf }}">
-    <label>Título <input name="titulo" required maxlength="160" placeholder="Ej.: Salida al museo"></label>
-    <label>Tipo
-      <select name="tipo" required>
-        {% for clave, texto in TIPOS.items() %}<option value="{{ clave }}">{{ texto }}</option>{% endfor %}
-      </select>
-    </label>
-    <label>Descripción breve (opcional) <input name="descripcion" maxlength="300"></label>
-    <label>Texto exacto de la autorización
-      <textarea name="texto_legal" required rows="6"></textarea>
-    </label>
-    <p class="ayuda">Use el texto aprobado por el abogado de la escuela. Las familias firman exactamente este texto, y queda registrado con un código de verificación.</p>
-    <label>Fecha y hora límite (hora de Ecuador) <input type="datetime-local" name="fecha_limite" required></label>
-    <fieldset>
-      <legend>Salones que la reciben</legend>
-      {% for salon in salones %}
-        <label class="opcion"><input type="checkbox" name="salon_ids" value="{{ salon.id }}"> {{ salon.nombre }} ({{ salon.grado }})</label>
-      {% else %}
-        <p>Primero cree un salón.</p>
-      {% endfor %}
+    <div class="col-sm-8"><label class="form-label" for="titulo">Título</label><input id="titulo" name="titulo" class="form-control" required maxlength="160" placeholder="Salida al museo"></div>
+    <div class="col-sm-4"><label class="form-label" for="tipo">Tipo</label><select id="tipo" name="tipo" class="form-select" required>{% for clave, texto in TIPOS.items() %}<option value="{{ clave }}">{{ texto }}</option>{% endfor %}</select></div>
+    <div class="col-12"><label class="form-label" for="descripcion">Descripción breve (opcional)</label><input id="descripcion" name="descripcion" class="form-control" maxlength="300"></div>
+    <div class="col-12"><label class="form-label" for="texto">Texto exacto de la autorización</label><textarea id="texto" name="texto_legal" class="form-control" rows="6" required aria-describedby="ayuda-texto"></textarea>
+      <div id="ayuda-texto" class="form-text">Use el texto aprobado por el abogado de la escuela. Las familias firman exactamente este texto y queda registrado con un código de verificación.</div></div>
+    <div class="col-sm-6"><label class="form-label" for="fecha">Fecha y hora límite (Ecuador)</label><input id="fecha" type="datetime-local" name="fecha_limite" class="form-control" required></div>
+    <fieldset class="col-12"><legend class="form-label">Salones que la reciben</legend>
+      <div class="row">{% for s in salones %}<div class="col-6 col-md-4"><label class="form-check"><input class="form-check-input" type="checkbox" name="salon_ids" value="{{ s.id }}"> {{ s.nombre }}</label></div>{% else %}<p class="text-secondary">Primero cree salones en el año activo.</p>{% endfor %}</div>
     </fieldset>
-    <button type="submit" class="boton">Crear campaña</button>
+    <div class="col-12"><button class="btn btn-primary">Crear campaña</button></div>
   </form>
 </section>
 {% endblock %}

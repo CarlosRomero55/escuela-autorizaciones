@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class LoginIn(BaseModel):
+    # Correo o nombre de usuario
     email: str = Field(min_length=3, max_length=160)
     password: str = Field(min_length=1, max_length=200)
 
@@ -14,8 +15,9 @@ class TotpIn(BaseModel):
 
 
 class SalonIn(BaseModel):
-    nombre: str = Field(min_length=1, max_length=60)
-    grado: str = Field(min_length=1, max_length=20)
+    grado_id: int
+    paralelo_id: int
+    tutor_id: int | None = None
 
 
 class SalonOut(BaseModel):
@@ -23,12 +25,14 @@ class SalonOut(BaseModel):
 
     id: int
     nombre: str
-    grado: str
+    anio_lectivo_id: int
+    tutor_id: int | None
 
 
 class AlumnoIn(BaseModel):
     codigo_interno: str = Field(min_length=1, max_length=20)
-    nombre: str = Field(min_length=1, max_length=120)
+    nombres: str = Field(min_length=1, max_length=80)
+    apellidos: str = Field(min_length=1, max_length=80)
     salon_id: int
 
 
@@ -42,7 +46,7 @@ class AlumnoOut(BaseModel):
     id: int
     codigo_interno: str
     nombre: str
-    salon_id: int
+    salon_id: int | None
     activo: bool
 
 

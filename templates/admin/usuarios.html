@@ -1,0 +1,32 @@
+{% extends "layout.html" %}
+{% from "_macros.html" import encabezado, estado, vacio, paginacion %}
+{% block titulo %}Usuarios{% endblock %}
+{% block contenido %}
+{% call encabezado("Usuarios", total ~ " cuentas") %}<a class="btn btn-primary" href="/admin/usuarios/nuevo"><i class="bi bi-person-plus" aria-hidden="true"></i> Nuevo usuario</a>{% endcall %}
+<form method="get" action="/admin/usuarios" class="row g-2 mb-3" role="search">
+  <div class="col-md-5"><label class="visually-hidden" for="q">Buscar</label><input id="q" name="q" value="{{ q }}" class="form-control" placeholder="Nombre o usuario"></div>
+  <div class="col-md-4"><label class="visually-hidden" for="rol">Rol</label>
+    <select id="rol" name="rol" class="form-select"><option value="">Todos los roles</option>{% for r in roles %}<option value="{{ r }}"{% if r == rol %} selected{% endif %}>{{ ETIQUETAS_ROL[r] }}</option>{% endfor %}</select></div>
+  <div class="col-md-3"><button class="btn btn-outline-primary w-100">Filtrar</button></div>
+</form>
+<div class="card">
+  <div class="table-responsive">
+    <table class="table tabla-tarjetas">
+      <thead><tr><th scope="col">Persona</th><th scope="col">Usuario</th><th scope="col">Correo</th><th scope="col">Roles</th><th scope="col">Estado</th><th scope="col">2 pasos</th></tr></thead>
+      <tbody>
+      {% for u, (texto_estado, tipo_estado), correo in usuarios %}
+        <tr>
+          <td data-label="Persona"><a href="/admin/usuarios/{{ u.id }}">{{ u.nombre }}</a></td>
+          <td data-label="Usuario"><code>{{ u.login }}</code></td>
+          <td data-label="Correo">{{ correo or "—" }}</td>
+          <td data-label="Roles">{% for r in u.roles %}{{ ETIQUETAS_ROL[r.rol] }}{{ ", " if not loop.last }}{% endfor %}</td>
+          <td data-label="Estado">{{ estado(texto_estado, {"success": "ok", "warning": "alerta", "danger": "error"}.get(tipo_estado, "neutro")) }}</td>
+          <td data-label="2 pasos">{{ estado("Sí", "ok") if u.totp_secret_cifrado else estado("No", "neutro") }}</td>
+        </tr>
+      {% else %}<tr><td colspan="6">{{ vacio("bi-people", "No hay usuarios con ese filtro.") }}</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {{ paginacion(request, pagina, paginas) }}
+</div>
+{% endblock %}

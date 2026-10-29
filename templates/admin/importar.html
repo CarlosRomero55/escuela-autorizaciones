@@ -1,26 +1,35 @@
-{% extends "admin/base.html" %}
+{% extends "layout.html" %}
+{% from "_macros.html" import encabezado %}
 {% block titulo %}Importar alumnos{% endblock %}
 {% block contenido %}
-<h1>Importar alumnos desde CSV</h1>
-
-<section class="tarjeta">
-  <h2>Cómo preparar el archivo</h2>
-  <ol>
-    <li>En Excel, use una fila de encabezados con estas columnas: {% for c in columnas %}<code>{{ c }}</code>{{ ", " if not loop.last }}{% endfor %}.</li>
-    <li>En la columna <code>salon</code>, escriba el nombre del salón tal como aparece en el sistema (por ejemplo, <code>1A</code>).</li>
-    <li>Guarde con <strong>Archivo → Guardar como → CSV</strong>.</li>
-  </ol>
-  <p class="ayuda">Antes de importar verá una vista previa con los errores y los duplicados. Nada se guarda hasta que confirme.</p>
-  <pre class="ejemplo">codigo_interno;nombre;salon
-EST-101;Ana Ficticia Pérez;1A
-EST-102;Luis Ficticio Mora;2A</pre>
-</section>
-
-<form method="post" action="/admin/alumnos/importar/vista-previa" enctype="multipart/form-data" class="formulario tarjeta">
-  <input type="hidden" name="csrf" value="{{ csrf }}">
-  <label>Archivo CSV (hasta 1 MB)
-    <input type="file" name="archivo" accept=".csv,text/csv" required>
-  </label>
-  <button type="submit" class="boton">Ver vista previa</button>
-</form>
+{{ encabezado("Importar alumnos desde CSV", "Crea los alumnos y los matricula en el año lectivo activo.") }}
+<div class="row g-4">
+  <div class="col-lg-6">
+    <section class="card h-100" aria-labelledby="t-como">
+      <div class="card-header" id="t-como">Cómo preparar el archivo</div>
+      <div class="card-body">
+        <ol class="ps-3">
+          <li>En Excel, use una fila de encabezados con estas columnas: {% for c in columnas %}<code>{{ c }}</code>{{ ", " if not loop.last }}{% endfor %}.</li>
+          <li>En <code>salon</code>, escriba el nombre del salón tal como aparece en el sistema (por ejemplo, <code>5.º A</code>).</li>
+          <li>Guarde con <strong>Archivo → Guardar como → CSV</strong>.</li>
+        </ol>
+        <pre class="texto-legal pequeno mb-0">codigo_interno;nombres;apellidos;salon
+EST-501;Ana Lucía;Ficticia Pérez;5.º A
+EST-502;Luis;Ficticio Mora;5.º A</pre>
+      </div>
+    </section>
+  </div>
+  <div class="col-lg-6">
+    <form method="post" action="/admin/alumnos/importar/vista-previa" enctype="multipart/form-data" class="card h-100">
+      <div class="card-header">Subir archivo</div>
+      <div class="card-body">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <label class="form-label" for="archivo">Archivo CSV (hasta 1 MB)</label>
+        <input id="archivo" class="form-control mb-3" type="file" name="archivo" accept=".csv,text/csv" required>
+        <p class="text-secondary pequeno">Verá una vista previa con duplicados y errores. Nada se guarda hasta que confirme.</p>
+        <button class="btn btn-primary">Ver vista previa</button>
+      </div>
+    </form>
+  </div>
+</div>
 {% endblock %}

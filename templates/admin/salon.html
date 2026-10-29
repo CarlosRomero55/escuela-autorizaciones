@@ -1,0 +1,60 @@
+{% extends "layout.html" %}
+{% from "_macros.html" import encabezado, vacio %}
+{% block titulo %}{{ salon.nombre }}{% endblock %}
+{% block contenido %}
+{% call encabezado(salon.nombre, salon.grado.nivel.nombre) %}<a class="btn btn-light" href="/admin/salones"><i class="bi bi-arrow-left" aria-hidden="true"></i> Salones</a>{% endcall %}
+<div class="row g-4">
+  <div class="col-xl-7">
+    <section class="card mb-4" aria-labelledby="t-tutor">
+      <div class="card-header" id="t-tutor">Tutor/a del salón</div>
+      <form method="post" action="/admin/salones/{{ salon.id }}/tutor" class="card-body d-flex gap-2 align-items-end">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <div class="flex-grow-1"><label class="form-label visually-hidden" for="tutor">Tutor/a</label>
+          <select id="tutor" name="tutor_id" class="form-select"><option value="">Sin asignar</option>{% for d in docentes %}<option value="{{ d.id }}"{% if d.id == salon.tutor_id %} selected{% endif %}>{{ d.nombre }}</option>{% endfor %}</select></div>
+        <button class="btn btn-light">Guardar</button>
+      </form>
+    </section>
+    <section class="card" aria-labelledby="t-materias">
+      <div class="card-header" id="t-materias">Materias y docentes</div>
+      <div class="table-responsive">
+        <table class="table tabla-tarjetas">
+          <thead><tr><th scope="col">Materia</th><th scope="col">Docente</th></tr></thead>
+          <tbody>
+          {% for m in materias %}
+            {% set asignada = asignadas.get(m.id) %}
+            <tr>
+              <td data-label="Materia">{{ m.nombre }} <span class="text-secondary pequeno d-block">{{ m.area.nombre }}</span></td>
+              <td data-label="Docente">
+                <form method="post" action="/admin/salones/{{ salon.id }}/asignaciones" class="d-flex gap-2">
+                  <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="materia_id" value="{{ m.id }}">
+                  <label class="visually-hidden" for="doc-{{ m.id }}">Docente de {{ m.nombre }}</label>
+                  <select id="doc-{{ m.id }}" name="docente_id" class="form-select"><option value="">Por asignar</option>{% for d in docentes %}<option value="{{ d.id }}"{% if asignada and asignada.docente_id == d.id %} selected{% endif %}>{{ d.nombre }}</option>{% endfor %}</select>
+                  <button class="btn btn-light">Guardar</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+  <div class="col-xl-5">
+    <section class="card" aria-labelledby="t-alumnos">
+      <div class="card-header" id="t-alumnos">Alumnos matriculados ({{ alumnos | length }})</div>
+      <ul class="list-group list-group-flush">
+        {% for a in alumnos %}<li class="list-group-item"><a href="/portal/alumnos/{{ a.id }}">{{ a.nombre }}</a> <span class="text-secondary pequeno">{{ a.codigo_interno }}</span></li>
+        {% else %}<li class="list-group-item">{{ vacio("bi-mortarboard", "Sin alumnos.") }}</li>{% endfor %}
+      </ul>
+      {% if sin_salon %}
+      <form method="post" action="/admin/salones/{{ salon.id }}/matriculas" class="card-body d-flex gap-2 align-items-end border-top">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <div class="flex-grow-1"><label class="form-label" for="alumno">Matricular a</label>
+          <select id="alumno" name="alumno_id" class="form-select" required><option value="">Alumno sin matrícula este año…</option>{% for a in sin_salon %}<option value="{{ a.id }}">{{ a.nombre }} · {{ a.codigo_interno }}</option>{% endfor %}</select></div>
+        <button class="btn btn-primary">Matricular</button>
+      </form>
+      {% endif %}
+    </section>
+  </div>
+</div>
+{% endblock %}

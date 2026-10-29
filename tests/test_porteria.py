@@ -1,22 +1,20 @@
 import re
-import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
-from app.models import AdultoAutorizado, CodigoRecogida, Incidente, Recogida
-from tests.conftest import CSRF, crear_usuario, iniciar, sesion_admin
+from app.models import CodigoRecogida, Incidente, Recogida
+from tests.conftest import CSRF, crear_alumno, crear_salon, crear_usuario, entrar_api, sesion_admin
 
-AHORA = datetime.now(timezone.utc)
+AHORA = datetime.now(UTC)
 PATRON_CODIGO = re.compile(r'class="numero">(\d{6})<')
 
 
-def _escuela(admin):
+def _escuela(admin, sf):
     """Salón, alumno, familia vinculada y una adulta validada por la coordinación."""
-    salon = admin.post("/api/salones", json={"nombre": "1A", "grado": "1ro"}, headers=CSRF).json()
-    alumno = admin.post("/api/alumnos", json={
-        "codigo_interno": "A-001", "nombre": "Alumno Ficticio 1", "salon_id": salon["id"]}, headers=CSRF).json()
+    salon = crear_salon(sf, "1.º A")
+    alumno = {"id": crear_alumno(sf, salon, "Alumno Ficticio", "Uno", "A-001"), "salon_id": salon}
     familia = admin.post("/api/familias", json={"nombre_familia": "Familia Ficticia"}, headers=CSRF).json()
     admin.post(f"/api/familias/{familia['id']}/alumnos", json={"alumno_id": alumno["id"]}, headers=CSRF)
     url = admin.post(f"/api/familias/{familia['id']}/enlace", headers=CSRF).json()["url"]
@@ -35,16 +33,12 @@ def _generar_codigo(app, url, alumno_id, adulto_id) -> str:
 
 
 def _portero(app, session_factory, rol="porteria"):
-    correo = f"{rol}-{uuid.uuid4().hex[:6]}@ejemplo.test"
-    crear_usuario(session_factory, rol=rol, email=correo)
-    cliente = TestClient(app)
-    assert iniciar(cliente, correo).status_code == 200
-    return cliente
+    return entrar_api(TestClient(app), crear_usuario(session_factory, rol=rol))
 
 
 def _preparar(app, session_factory):
     admin = sesion_admin(TestClient(app), session_factory)
-    alumno, adulto, url = _escuela(admin)
+    alumno, adulto, url = _escuela(admin, session_factory)
     return admin, alumno, adulto, url
 
 
@@ -112,8 +106,7 @@ def test_nuevo_codigo_invalida_el_anterior(app, session_factory):
 
 def test_adulto_pendiente_no_puede_generar_codigo(app, session_factory):
     admin = sesion_admin(TestClient(app), session_factory)
-    salon = admin.post("/api/salones", json={"nombre": "1A", "grado": "1ro"}, headers=CSRF).json()
-    alumno = admin.post("/api/alumnos", json={"codigo_interno": "A-9", "nombre": "Alumno 9", "salon_id": salon["id"]}, headers=CSRF).json()
+    alumno = {"id": crear_alumno(session_factory, crear_salon(session_factory, "1.º A"), "Alumno", "Nueve")}
     familia = admin.post("/api/familias", json={"nombre_familia": "Familia 9"}, headers=CSRF).json()
     admin.post(f"/api/familias/{familia['id']}/alumnos", json={"alumno_id": alumno["id"]}, headers=CSRF)
     url = admin.post(f"/api/familias/{familia['id']}/enlace", headers=CSRF).json()["url"]
@@ -156,10 +149,10 @@ def test_adultos_vigentes_excluye_pendientes_y_temporales_vencidos(app, session_
     assert nombres == {"Adulta Ficticia", "Temporal Vigente"}
 
 
-def test_maestra_no_puede_validar_codigos(app, session_factory):
+def test_docente_no_puede_validar_codigos(app, session_factory):
     _, alumno, adulto, url = _preparar(app, session_factory)
     codigo = _generar_codigo(app, url, alumno["id"], adulto["id"])
-    maestra = _portero(app, session_factory, rol="maestra")
+    maestra = _portero(app, session_factory, rol="docente")
     r = maestra.post("/api/porteria/recogidas/validar-codigo", json={"alumno_id": alumno["id"], "codigo": codigo}, headers=CSRF)
     assert r.status_code == 403
 

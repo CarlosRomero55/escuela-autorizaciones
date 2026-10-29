@@ -1,0 +1,9 @@
+{% extends "layout.html" %}
+{% from "_macros.html" import vacio %}
+{% block titulo %}No encontrado{% endblock %}
+{% block contenido %}
+<div class="card ancho-lectura">
+  {{ vacio("bi-search", "No encontramos lo que busca, o no está disponible para su usuario.") }}
+  <div class="text-center pb-4"><a class="btn btn-primary" href="/portal">Volver al inicio</a></div>
+</div>
+{% endblock %}

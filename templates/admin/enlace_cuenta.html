@@ -1,0 +1,19 @@
+{% extends "layout.html" %}
+{% from "_macros.html" import encabezado %}
+{% block titulo %}Enlace de acceso{% endblock %}
+{% block contenido %}
+{{ encabezado("Enlace para " ~ usuario_cuenta.nombre, "Usuario: " ~ usuario_cuenta.login) }}
+<div class="alert alert-success ancho-lectura">Enlace generado. Vence en {{ (horas ~ " horas") if horas else (minutos ~ " minutos") }} y sirve una sola vez. Cópielo ahora: por seguridad no se vuelve a mostrar.</div>
+<section class="card ancho-lectura"><div class="card-body">
+  <label class="form-label" for="url">Enlace</label>
+  <div class="input-group mb-3">
+    <input id="url" class="form-control" value="{{ url }}" readonly>
+    <button class="btn btn-outline-primary" type="button" data-copiar="#url"><i class="bi bi-clipboard" aria-hidden="true"></i> Copiar</button>
+  </div>
+  <label class="form-label" for="mensaje">Mensaje sugerido</label>
+  <textarea id="mensaje" class="form-control mb-2" rows="4" readonly>{{ mensaje }}</textarea>
+  <button class="btn btn-light" type="button" data-copiar="#mensaje"><i class="bi bi-clipboard" aria-hidden="true"></i> Copiar mensaje</button>
+  <p class="text-secondary pequeno mt-3 mb-0">Envíelo por el canal acordado con la familia o el personal. Si recarga esta página se genera otro enlace y este deja de funcionar.</p>
+</div></section>
+<p class="mt-3"><a href="/admin/usuarios/{{ usuario_cuenta.id }}">Ir a la cuenta</a></p>
+{% endblock %}

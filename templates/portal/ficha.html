@@ -1,0 +1,49 @@
+{% extends "layout.html" %}
+{% from "_macros.html" import encabezado, estado %}
+{% block titulo %}{{ alumno.nombre }}{% endblock %}
+{% block contenido %}
+{{ encabezado(alumno.nombre, "Código " ~ alumno.codigo_interno ~ (" · " ~ salon.nombre if salon else "")) }}
+{% if actor.rol == "administrador" %}
+  <div class="alert alert-info pequeno">Acceso justificado y registrado en la bitácora. Vence en 15 minutos.</div>
+{% endif %}
+<div class="row g-4">
+  <div class="col-lg-6">
+    <div class="card mb-4">
+      <div class="card-header">Datos académicos</div>
+      <dl class="row card-body mb-0">
+        <dt class="col-5">Estado</dt><dd class="col-7">{{ estado("Activo", "ok") if alumno.activo else estado("Inactivo", "neutro") }}</dd>
+        <dt class="col-5">Salón</dt><dd class="col-7">{% if salon and salon_visible %}<a href="/portal/salones/{{ salon.id }}">{{ salon.nombre }}</a>{% else %}{{ salon.nombre if salon else "—" }}{% endif %}</dd>
+        <dt class="col-5">Nivel</dt><dd class="col-7">{{ salon.grado.nivel.nombre if salon else "—" }}</dd>
+        <dt class="col-5">Tutor/a</dt><dd class="col-7">{{ salon.tutor.nombre if salon and salon.tutor else "—" }}</dd>
+      </dl>
+    </div>
+    <div class="card">
+      <div class="card-header">Representantes</div>
+      <ul class="list-group list-group-flush">
+        {% for rep, parentesco in representantes %}
+          <li class="list-group-item d-flex justify-content-between"><span>{{ rep.nombre }}</span><span class="text-secondary">{{ parentesco }}</span></li>
+        {% else %}<li class="list-group-item text-secondary">Sin representantes vinculados.</li>{% endfor %}
+      </ul>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card mb-4">
+      <div class="card-header">Materias</div>
+      <ul class="list-group list-group-flush">
+        {% for m in materias %}
+          <li class="list-group-item d-flex justify-content-between"><span>{{ m.materia.nombre }}</span><span class="text-secondary">{{ m.docente.nombre if m.docente else "Por asignar" }}</span></li>
+        {% else %}<li class="list-group-item text-secondary">Sin materias.</li>{% endfor %}
+      </ul>
+      <div class="card-body pequeno text-secondary">Calificaciones, tareas y asistencia se mostrarán aquí desde la Fase 3.</div>
+    </div>
+    <div class="card">
+      <div class="card-header">Historial de matrículas</div>
+      <ul class="list-group list-group-flush">
+        {% for matricula, nombre_salon in matriculas %}
+          <li class="list-group-item d-flex justify-content-between"><span>{{ nombre_salon }}</span>{{ estado(matricula.estado | capitalize, "ok" if matricula.estado == "activa" else "neutro") }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}
