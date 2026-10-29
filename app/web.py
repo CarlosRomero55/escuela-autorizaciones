@@ -18,7 +18,7 @@ from app.config import Settings
 from app.db import get_db
 from app.models import AlertaInicioSesion, Sesion
 from app.permisos import ETIQUETAS_ROL, Actor, construir_actor, puede
-from app.tiempo import ahora, local
+from app.tiempo import ahora, hace, local
 
 RAIZ = Path(__file__).resolve().parents[1]
 
@@ -26,6 +26,7 @@ templates = Jinja2Templates(
     env=Environment(loader=FileSystemLoader(RAIZ / "templates"), autoescape=select_autoescape(["html"]))
 )
 templates.env.filters["local"] = local
+templates.env.filters["hace"] = hace
 templates.env.globals["ETIQUETAS_ROL"] = ETIQUETAS_ROL
 templates.env.globals["TIPOS"] = {"salida": "Salida pedagógica", "vacuna": "Vacuna", "evento": "Evento", "otro": "Otro"}
 

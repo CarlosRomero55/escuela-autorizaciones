@@ -147,7 +147,7 @@ def enviar_totp(request: Request, codigo: str = Form(""), db: Session = Depends(
 
 def qr_svg(usuario: Usuario, secreto: str) -> Markup:
     uri = security.totp_provisioning_uri(secreto, usuario.login, issuer="Escuela demo")
-    return Markup(segno.make(uri, error="m").svg_inline(scale=5, border=2, title="Código QR para la aplicación"))
+    return Markup(segno.make(uri, error="m").svg_inline(scale=5, border=2, omitsize=True, title="Código QR para la aplicación"))
 
 
 @router.get("/ingresar/configurar-totp")

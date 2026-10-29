@@ -1,116 +1,132 @@
 {% extends "layout.html" %}
-{% from "_macros.html" import encabezado, estado, vacio %}
+{% from "_macros.html" import estado %}
 {% block titulo %}Mi cuenta{% endblock %}
 {% block contenido %}
-{{ encabezado("Mi cuenta", usuario.nombre ~ " · " ~ usuario.login) }}
-<div class="row g-4">
-  <div class="col-xl-7">
-    <section class="card mb-4" id="alertas" aria-labelledby="t-alertas">
-      <div class="card-header" id="t-alertas">Alertas de inicio de sesión</div>
-      {% if alertas %}
-      <ul class="list-group list-group-flush">
-        {% for a in alertas %}
-          <li class="list-group-item">
-            <div class="d-flex flex-wrap justify-content-between gap-2">
-              <div><div>{{ a.motivo }}</div><div class="text-secondary pequeno">{{ a.creada_en | local }}</div></div>
-              {% if a.estado == "pendiente" %}
-                <div class="d-flex gap-2">
-                  <form method="post" action="/portal/perfil/alertas/{{ a.id }}"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="accion" value="confirmar"><button class="btn btn-outline-primary">Fui yo</button></form>
-                  <form method="post" action="/portal/perfil/alertas/{{ a.id }}"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="accion" value="bloquear"><button class="btn btn-danger">No fui yo</button></form>
-                </div>
-              {% elif a.estado == "confirmada" %}{{ estado("Reconocido", "ok") }}
-              {% else %}{{ estado("Sesión cerrada", "error") }}{% endif %}
-            </div>
-          </li>
-        {% endfor %}
-      </ul>
-      {% else %}{{ vacio("bi-shield-check", "Sin alertas. Le avisaremos si alguien ingresa desde un dispositivo nuevo.") }}{% endif %}
-    </section>
+<div class="ancho-perfil">
 
-    <section class="card mb-4" aria-labelledby="t-sesiones">
-      <div class="card-header d-flex justify-content-between align-items-center" id="t-sesiones">
-        <span>Sesiones activas</span>
-        {% if sesiones | length > 1 %}
-        <form method="post" action="/portal/perfil/sesiones/cerrar-otras"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn btn-light">Cerrar las demás</button></form>
-        {% endif %}
+  {# Resumen #}
+  <section class="card mb-4" aria-label="Resumen de la cuenta">
+    <div class="card-body d-flex flex-wrap align-items-center gap-3">
+      <span class="avatar avatar-grande">{{ usuario.persona.nombres[:1] }}{{ usuario.persona.apellidos[:1] }}</span>
+      <div class="flex-grow-1">
+        <h1 class="h4 mb-1">{{ usuario.nombre }}</h1>
+        <div class="text-secondary pequeno mb-2">Usuario <code>{{ usuario.login }}</code>{% if usuario.email %} · {{ usuario.email }}{% endif %}</div>
+        <div class="d-flex flex-wrap gap-2">
+          {% for r in roles %}{{ estado(ETIQUETAS_ROL[r.rol] ~ (" · " ~ r.area.nombre if r.area else ""), "info" if r.rol == actor.rol else "neutro") }}{% endfor %}
+        </div>
       </div>
-      <div class="table-responsive">
-        <table class="table tabla-tarjetas">
-          <thead><tr><th scope="col">Dispositivo</th><th scope="col">Última actividad</th><th scope="col">Inicio</th><th scope="col"><span class="visually-hidden">Acción</span></th></tr></thead>
-          <tbody>
-          {% for s in sesiones %}
-            <tr>
-              <td data-label="Dispositivo">{{ nombres_dispositivo.get(s.dispositivo_id, "Navegador") }}{% if s.id == sesion_actual %} {{ estado("Esta sesión", "info") }}{% endif %}</td>
-              <td data-label="Última actividad">{{ s.ultima_actividad | local }}</td>
-              <td data-label="Inicio">{{ s.creada_en | local }}</td>
-              <td data-label="" class="acciones text-end">
-                <form method="post" action="/portal/perfil/sesiones/{{ s.id }}/cerrar"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn btn-light">{{ "Salir" if s.id == sesion_actual else "Cerrar" }}</button></form>
-              </td>
-            </tr>
-          {% endfor %}
-          </tbody>
-        </table>
+      <div class="text-md-end">
+        {% if usuario.totp_secret_cifrado %}{{ estado("Verificación en dos pasos activa", "ok", "bi-shield-check") }}
+        {% else %}{{ estado("Sin verificación en dos pasos", "alerta", "bi-shield-exclamation") }}{% endif %}
+      </div>
+    </div>
+  </section>
+
+  {# Alertas: solo si hay algo que revisar #}
+  {% for a in alertas_por_revisar %}
+    <section id="alertas" class="alert alert-warning d-flex flex-wrap align-items-center gap-3 mb-4" role="alert">
+      <i class="bi bi-exclamation-triangle fs-4" aria-hidden="true"></i>
+      <div class="flex-grow-1">
+        <strong>¿Fue usted?</strong> {{ a.motivo }}.
+        <div class="pequeno">{{ a.creada_en | local }} ({{ a.creada_en | hace }})</div>
+      </div>
+      <div class="d-flex gap-2">
+        <form method="post" action="/portal/perfil/alertas/{{ a.id }}"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="accion" value="confirmar"><button class="btn btn-light">Fui yo</button></form>
+        <form method="post" action="/portal/perfil/alertas/{{ a.id }}"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="accion" value="bloquear"><button class="btn btn-danger">No fui yo</button></form>
       </div>
     </section>
+  {% endfor %}
 
-    <section class="card" aria-labelledby="t-dispositivos">
-      <div class="card-header" id="t-dispositivos">Dispositivos conocidos</div>
-      <ul class="list-group list-group-flush">
-        {% for d in dispositivos %}
-          <li class="list-group-item d-flex justify-content-between"><span>{{ d.descripcion }} <span class="text-secondary pequeno">· último uso {{ d.ultima_vez | local }}</span></span>{% if not d.confiable %}{{ estado("No reconocido", "error") }}{% endif %}</li>
-        {% endfor %}
-      </ul>
-    </section>
-  </div>
-
-  <div class="col-xl-5">
-    <section class="card mb-4" aria-labelledby="t-roles">
-      <div class="card-header" id="t-roles">Mis roles</div>
-      <div class="card-body d-flex flex-wrap gap-2">
-        {% for r in roles %}{{ estado(ETIQUETAS_ROL[r.rol] ~ (" · " ~ r.area.nombre if r.area else ""), "info" if r.rol == actor.rol else "neutro") }}{% endfor %}
-      </div>
-    </section>
-
-    <section class="card mb-4" aria-labelledby="t-totp">
-      <div class="card-header" id="t-totp">Verificación en dos pasos</div>
-      <div class="card-body">
-        {% if usuario.totp_secret_cifrado %}
-          <p>{{ estado("Activada", "ok", "bi-check-circle") }}</p>
-          {% if totp_obligatorio %}
-            <p class="text-secondary pequeno mb-0">Su rol la exige, por eso no puede desactivarse.</p>
-          {% else %}
-            <form method="post" action="/portal/perfil/totp/desactivar" class="d-flex gap-2 align-items-end">
-              <input type="hidden" name="csrf" value="{{ csrf }}">
-              <div class="flex-grow-1"><label for="actual-totp" class="form-label pequeno">Contraseña actual</label><input id="actual-totp" type="password" name="actual" class="form-control" required autocomplete="current-password"></div>
-              <button class="btn btn-light">Desactivar</button>
-            </form>
+  <div class="row g-4">
+    {# Sesiones #}
+    <div class="col-lg-7">
+      <section class="card" aria-labelledby="t-sesiones">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h2 class="h6 mb-0" id="t-sesiones">Dónde tiene la sesión abierta</h2>
+          {% if sesiones | length > 1 %}
+            <form method="post" action="/portal/perfil/sesiones/cerrar-otras"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn btn-light btn-sm">Cerrar las demás</button></form>
           {% endif %}
-        {% else %}
-          <p class="text-secondary">Agrega una capa de protección: además de la contraseña, se pide un código de su teléfono.</p>
-          <div class="text-center mb-2"><span class="qr">{{ qr }}</span></div>
-          <p class="pequeno text-secondary">Clave: <span class="secreto">{{ secreto }}</span></p>
-          <form method="post" action="/portal/perfil/totp" class="d-flex gap-2 align-items-end">
-            <input type="hidden" name="csrf" value="{{ csrf }}">
-            <div class="flex-grow-1"><label for="codigo-totp" class="form-label pequeno">Código de la aplicación</label><input id="codigo-totp" name="codigo" class="form-control secreto" inputmode="numeric" pattern="\d{6}" maxlength="6" required autocomplete="one-time-code"></div>
-            <button class="btn btn-primary">Activar</button>
-          </form>
+        </div>
+        <ul class="list-group list-group-flush">
+          {% for item in sesiones %}
+            <li class="list-group-item fila-sesion">
+              <span class="icono-circulo {{ 'pastel-azul' if item.actual else 'pastel-morado' }}"><i class="bi {{ item.icono }}" aria-hidden="true"></i></span>
+              <div class="flex-grow-1 min-w-0">
+                <div class="fw-semibold">{{ item.descripcion }}
+                  {% if item.actual %}{{ estado("Este dispositivo", "info") }}{% endif %}
+                  {% if item.no_reconocido %}{{ estado("No reconocido", "error") }}{% endif %}
+                </div>
+                <div class="text-secondary pequeno">Activa {{ item.sesion.ultima_actividad | hace }} · inició {{ item.sesion.creada_en | local("%d/%m %H:%M") }}</div>
+              </div>
+              <form method="post" action="/portal/perfil/sesiones/{{ item.sesion.id }}/cerrar">
+                <input type="hidden" name="csrf" value="{{ csrf }}">
+                <button class="btn btn-light btn-sm" aria-label="{{ 'Salir de este dispositivo' if item.actual else 'Cerrar la sesión en ' ~ item.descripcion }}">{{ "Salir" if item.actual else "Cerrar" }}</button>
+              </form>
+            </li>
+          {% endfor %}
+        </ul>
+        {% if alertas_resueltas %}
+        <details class="card-body border-top pequeno">
+          <summary class="text-secondary">Avisos anteriores ({{ alertas_resueltas | length }})</summary>
+          <ul class="list-unstyled mt-2 mb-0">
+            {% for a in alertas_resueltas %}
+              <li class="d-flex justify-content-between gap-2 py-1"><span>{{ a.motivo }} · {{ a.creada_en | local("%d/%m %H:%M") }}</span>{{ estado("Reconocido", "ok") if a.estado == "confirmada" else estado("Sesión cerrada", "error") }}</li>
+            {% endfor %}
+          </ul>
+        </details>
         {% endif %}
-      </div>
-    </section>
+      </section>
+    </div>
 
-    <section class="card" aria-labelledby="t-password">
-      <div class="card-header" id="t-password">Cambiar contraseña</div>
-      <div class="card-body">
-        <form method="post" action="/portal/perfil/password">
-          <input type="hidden" name="csrf" value="{{ csrf }}">
-          <div class="mb-3"><label for="actual" class="form-label">Contraseña actual</label><input id="actual" type="password" name="actual" class="form-control" required autocomplete="current-password"></div>
-          <div class="mb-3"><label for="nueva" class="form-label">Nueva contraseña</label><input id="nueva" type="password" name="nueva" class="form-control" required minlength="10" autocomplete="new-password"></div>
-          <div class="mb-3"><label for="confirmacion" class="form-label">Repita la nueva contraseña</label><input id="confirmacion" type="password" name="confirmacion" class="form-control" required minlength="10" autocomplete="new-password"></div>
-          <button class="btn btn-primary" type="submit">Guardar</button>
-          <p class="text-secondary pequeno mt-2 mb-0">Al cambiarla se cierran sus otras sesiones.</p>
-        </form>
-      </div>
-    </section>
+    {# Seguridad #}
+    <div class="col-lg-5">
+      <section class="card" aria-labelledby="t-seguridad">
+        <div class="card-header"><h2 class="h6 mb-0" id="t-seguridad">Seguridad</h2></div>
+
+        <details class="seccion-plegable"{% if not usuario.totp_secret_cifrado and totp_obligatorio %} open{% endif %}>
+          <summary>
+            <span><i class="bi bi-shield-lock me-2" aria-hidden="true"></i>Verificación en dos pasos</span>
+            {{ estado("Activa", "ok") if usuario.totp_secret_cifrado else estado("Inactiva", "neutro") }}
+          </summary>
+          <div class="cuerpo">
+            {% if usuario.totp_secret_cifrado %}
+              {% if totp_obligatorio %}
+                <p class="text-secondary pequeno mb-0">Su rol la exige, por eso no puede desactivarse.</p>
+              {% else %}
+                <form method="post" action="/portal/perfil/totp/desactivar">
+                  <input type="hidden" name="csrf" value="{{ csrf }}">
+                  <label for="actual-totp" class="form-label pequeno">Para desactivarla, escriba su contraseña</label>
+                  <div class="d-flex gap-2"><input id="actual-totp" type="password" name="actual" class="form-control" required autocomplete="current-password"><button class="btn btn-light">Desactivar</button></div>
+                </form>
+              {% endif %}
+            {% else %}
+              <p class="text-secondary pequeno">Además de la contraseña, se pedirá un código de una aplicación en su teléfono.</p>
+              <div class="d-flex flex-wrap gap-3 align-items-start mb-3">
+                <span class="qr qr-pequeno">{{ qr }}</span>
+                <div class="pequeno text-secondary flex-grow-1">Escanee el código con su aplicación de autenticación o escriba esta clave:<br><span class="secreto">{{ secreto }}</span></div>
+              </div>
+              <form method="post" action="/portal/perfil/totp">
+                <input type="hidden" name="csrf" value="{{ csrf }}">
+                <label for="codigo-totp" class="form-label pequeno">Código de 6 dígitos</label>
+                <div class="d-flex gap-2"><input id="codigo-totp" name="codigo" class="form-control secreto" inputmode="numeric" pattern="\d{6}" maxlength="6" required autocomplete="one-time-code"><button class="btn btn-primary">Activar</button></div>
+              </form>
+            {% endif %}
+          </div>
+        </details>
+
+        <details class="seccion-plegable">
+          <summary><span><i class="bi bi-key me-2" aria-hidden="true"></i>Cambiar contraseña</span><i class="bi bi-chevron-down text-secondary" aria-hidden="true"></i></summary>
+          <form method="post" action="/portal/perfil/password" class="cuerpo">
+            <input type="hidden" name="csrf" value="{{ csrf }}">
+            <div class="mb-2"><label for="actual" class="form-label pequeno">Contraseña actual</label><input id="actual" type="password" name="actual" class="form-control" required autocomplete="current-password"></div>
+            <div class="mb-2"><label for="nueva" class="form-label pequeno">Nueva contraseña (mínimo 10 caracteres)</label><input id="nueva" type="password" name="nueva" class="form-control" required minlength="10" autocomplete="new-password"></div>
+            <div class="mb-3"><label for="confirmacion" class="form-label pequeno">Repita la nueva contraseña</label><input id="confirmacion" type="password" name="confirmacion" class="form-control" required minlength="10" autocomplete="new-password"></div>
+            <button class="btn btn-primary" type="submit">Guardar</button>
+            <p class="text-secondary pequeno mt-2 mb-0">Al cambiarla se cierran sus otras sesiones.</p>
+          </form>
+        </details>
+      </section>
+    </div>
   </div>
 </div>
 {% endblock %}

@@ -233,20 +233,30 @@ def cambiar_rol(rol: str = Form(""), w: Web = Depends(web)):
 
 # ---------- Mi cuenta ----------
 
+def _icono_dispositivo(descripcion: str) -> str:
+    return "bi-phone" if any(s in descripcion for s in ("Android", "iOS")) else "bi-laptop"
+
+
 @router.get("/perfil", response_class=HTMLResponse)
 def perfil(w: Web = Depends(web)):
     usuario = w.actor.usuario
-    dispositivos = w.db.scalars(select(DispositivoUsuario).where(DispositivoUsuario.usuario_id == usuario.id)
-                                .order_by(DispositivoUsuario.ultima_vez.desc())).all()
+    dispositivos = {d.id: d for d in w.db.scalars(select(DispositivoUsuario)
+                                                  .where(DispositivoUsuario.usuario_id == usuario.id))}
+    lista_sesiones = []
+    for s in sesiones.activas(w.db, w.settings, usuario.id):
+        dispositivo = dispositivos.get(s.dispositivo_id)
+        descripcion = dispositivo.descripcion if dispositivo else "Navegador"
+        lista_sesiones.append({"sesion": s, "descripcion": descripcion, "icono": _icono_dispositivo(descripcion),
+                               "actual": s.id == w.sesion.id,
+                               "no_reconocido": dispositivo is not None and not dispositivo.confiable})
+    alertas = w.db.scalars(select(AlertaInicioSesion).where(AlertaInicioSesion.usuario_id == usuario.id)
+                           .order_by(AlertaInicioSesion.id.desc()).limit(10)).all()
     datos = {
-        "sesiones": sesiones.activas(w.db, w.settings, usuario.id),
-        "dispositivos": dispositivos,
-        "nombres_dispositivo": {d.id: d.descripcion for d in dispositivos},
-        "alertas": w.db.scalars(select(AlertaInicioSesion).where(AlertaInicioSesion.usuario_id == usuario.id)
-                                .order_by(AlertaInicioSesion.id.desc()).limit(10)).all(),
-        "sesion_actual": w.sesion.id,
+        "sesiones": lista_sesiones,
+        "alertas_por_revisar": [a for a in alertas if a.estado == "pendiente"],
+        "alertas_resueltas": [a for a in alertas if a.estado != "pendiente"],
         "totp_obligatorio": requiere_totp(usuario),
-        "roles": [r for r in usuario.roles],
+        "roles": list(usuario.roles),
     }
     if not usuario.totp_secret_cifrado:
         secreto = preparar_enrolamiento(w.db, w.settings, usuario)
