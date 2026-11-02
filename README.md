@@ -10,10 +10,10 @@ Proyecto de portafolio: sistema web para una escuela primaria de Ecuador, con po
 |---|---|---|
 | 1 | Layout y sistema de diseño, roles con ámbito, motor de permisos, sesiones en servidor, dispositivos y alertas, TOTP por rol, activación y recuperación de cuentas, estructura académica, salones, asignaciones y matrículas | **Hecha** |
 | 3 | Clases con muro, tareas y borradores, entregas con archivos validados, prórrogas, rúbricas, calificación numérica y cualitativa, cumplimiento por alumno con exportación CSV, promedios por trimestre | **Hecha** |
-| 6 | Autorizaciones digitales, enlaces firmados para familias, códigos de recogida de un solo uso, persona no autorizada | Backend y página de familias hechos; falta la PWA de portería (siguiente) |
+| 6 | Autorizaciones digitales, enlaces firmados para familias, códigos de recogida de un solo uso, persona no autorizada, **aplicación de portería instalable con modo sin conexión** | **Hecha** (falta la mensajería real por WhatsApp: hoy es simulada) |
 | 2, 4, 5, 7–11 | Sitio público, portal del representante, boletines, bienestar, directivos, evaluaciones, operación | Diseño en [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md) |
 
-Calidad: **187 pruebas** (en SQLite y PostgreSQL), que incluyen los intentos de acceso cruzado entre roles, y una comprobación de que la migración coincide con el modelo. Lint con ruff e integración continua en GitHub Actions.
+Calidad: **199 pruebas** (en SQLite y PostgreSQL), que incluyen los intentos de acceso cruzado entre roles, y una comprobación de que la migración coincide con el modelo. Lint con ruff e integración continua en GitHub Actions.
 
 ## Lo más destacado
 
@@ -25,6 +25,7 @@ Calidad: **187 pruebas** (en SQLite y PostgreSQL), que incluyen los intentos de 
 - **CSP estricta:** Bootstrap, HTMX, iconos y la fuente Inter se sirven desde el propio servidor. No hay CDN ni scripts en línea.
 - **Archivos de entregas seguros:** el tipo se decide por el contenido y no por la extensión, hay límites por tipo, las fotos pierden el EXIF y la ubicación GPS, los nombres en disco son aleatorios, el código nunca se ejecuta y las descargas llevan un CSP `sandbox`.
 - **Calificaciones según el Instructivo de Evaluación 2025:** escala 1,00–10,00 con dos decimales truncados, equivalencias cualitativas y Preparatoria solo cualitativa. Los valores están marcados para **verificar** con la normativa vigente.
+- **Portería sin conexión:** aplicación instalable (PWA) que guarda en el teléfono un padrón mínimo (alumnos y personas autorizadas, sin teléfonos ni documentos) que vence a las 12 horas. Los registros sin red se guardan con la hora real y se envían solos al volver la conexión, sin duplicados. Si una autorización cambió mientras no había red, la salida se registra igual (ya ocurrió) y se abre un incidente para coordinación. Al salir se borran los datos del teléfono. Probado de punta a punta en un navegador real con la red cortada.
 - **Diseño responsive** probado a 390 px (teléfono), 1366 px (Chromebook) y 1440 px (escritorio). Ver [docs/ESTILO.md](docs/ESTILO.md).
 
 ## Probarlo localmente
@@ -80,7 +81,8 @@ app/
   academico.py    tareas, entregas, prórrogas, calificaciones y promedios
   archivos.py     validación de archivos y almacenamiento (local; S3/R2 en producción)
   seed.py         datos ficticios
-  routers/        acceso, portal, administración, familias, portería, API
+  routers/        acceso, portal, clases, administración, familias, portería, API
+static/porteria/  aplicación de portería: service worker, manifiesto, IndexedDB y cola de envío
 migrations/       migraciones de Alembic
 templates/        layout, macros y páginas (Jinja2)
 static/           app.css, app.js y librerías incluidas (vendor/)
@@ -98,6 +100,7 @@ tests/            pruebas con pytest
 | Documento de adultos autorizados | Verificar identidad en portería | AES-256-GCM + HMAC |
 | Respuestas de autorización: firmante, fecha, IP, navegador y hash del texto | Evidencia de consentimiento | Solo coordinación y administración |
 | Tareas, entregas, archivos y calificaciones | Trabajo académico | Solo el alumno, sus representantes, el docente de la clase, el directivo del área y el administrador con motivo |
+| Padrón de portería en el teléfono: nombres, salón y personas autorizadas | Consultar sin conexión | Vence a las 12 h; se borra al salir; cada descarga queda en la bitácora |
 | Bitácora (sin documentos, teléfonos ni correos) | Trazabilidad | Inmutable en PostgreSQL |
 
 La retención por tipo de dato y la anonimización al cierre del año lectivo se implementan con los procesos en segundo plano.

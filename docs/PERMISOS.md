@@ -24,6 +24,7 @@ Los permisos se evalúan con el **rol activo** de la sesión. Quien tiene varios
 | Estructura académica y matrículas | — | — | — | — | — | — | Gestiona | — | — |
 | Autorizaciones y familias | — | — | — | — | — | Gestiona | Gestiona | — | — |
 | Recogida (API) | — | Genera código desde su enlace | Consulta | — | — | Opera | Opera | — | Opera |
+| Aplicación de portería y padrón sin conexión | — | — | — | — | — | Opera | Opera | — | Opera |
 | Bitácora | — | — | — | — | — | — | Completa | Completa, y sus consultas quedan registradas | — |
 | Su propia cuenta | Sesiones, dispositivos, contraseña, TOTP | Igual | Igual | Igual | Igual | Igual | Igual | Igual | Igual |
 
@@ -36,7 +37,8 @@ Reglas adicionales:
 - Nadie puede cerrar sesiones ajenas desde su perfil; el intento responde 404.
 - Una tarea en borrador solo la ve su docente; para los demás responde 404.
 - Ser tutor de un salón no da acceso a las clases de otros docentes de ese salón.
-- Las pruebas de la Fase 3 están en `tests/test_clases.py`.
+- Las pruebas de la Fase 3 están en `tests/test_clases.py`; las de la aplicación de portería, en `tests/test_porteria_pwa.py`.
+- El personal de portería entra directo a su aplicación; el portal solo le sirve para su cuenta.
 
 ## Pruebas
 

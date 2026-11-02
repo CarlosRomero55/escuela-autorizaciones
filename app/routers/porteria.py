@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, time, timedelta
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
@@ -13,6 +13,7 @@ from app.deps import require_roles
 from app.models import (
     AdultoAutorizado,
     Alumno,
+    AnioLectivo,
     CodigoRecogida,
     Incidente,
     Recogida,
@@ -31,6 +32,7 @@ from app.routers.familias import (
     _local,
     templates,
 )
+from app.tiempo import TZ_ESCUELA
 
 # Quienes atienden la portería
 PORTERIA = ("administrador", "coordinacion", "porteria")
@@ -59,6 +61,9 @@ class RecogidaManualIn(BaseModel):
     alumno_id: int
     adulto_id: int
     sync_id: str | None = Field(default=None, max_length=64)
+    # Hora del evento según el teléfono, y si el envío se demoró por falta de red
+    ocurrida_en: datetime | None = None
+    diferido: bool = False
 
 
 class IncidenteIn(BaseModel):
@@ -67,6 +72,8 @@ class IncidenteIn(BaseModel):
     personas_involucradas: str | None = Field(default=None, max_length=1000)
     acciones_tomadas: str | None = Field(default=None, max_length=2000)
     sync_id: str | None = Field(default=None, max_length=64)
+    ocurrida_en: datetime | None = None
+    diferido: bool = False
 
 
 class TemporalIn(BaseModel):
@@ -95,14 +102,37 @@ def _alumno_activo(db: Session, alumno_id: int) -> Alumno:
     return alumno
 
 
-def _recogida_out(recogida: Recogida) -> dict:
+def _recogida_out(recogida: Recogida, alerta: str | None = None) -> dict:
     return {
         "id": recogida.id,
         "alumno_id": recogida.alumno_id,
         "adulto_id": recogida.adulto_id,
         "no_autorizado": recogida.no_autorizado,
-        "ocurrida_en": recogida.ocurrida_en.isoformat(),
+        "ocurrida_en": _aware(recogida.ocurrida_en).isoformat(),
+        "sin_conexion": recogida.sin_conexion,
+        "alerta": alerta,
     }
+
+
+def _momento_del_evento(ocurrida_en: datetime | None, diferido: bool, request: Request) -> tuple[datetime, bool]:
+    """Hora del evento y si llegó tarde desde la cola sin conexión. Se rechazan horas imposibles."""
+    ahora = _ahora()
+    if ocurrida_en is None:
+        return ahora, False
+    settings = request.app.state.settings
+    momento = _aware(ocurrida_en).astimezone(UTC)
+    if momento > ahora + timedelta(minutes=5):
+        raise HTTPException(status_code=422, detail="La hora del registro está en el futuro. Revise la hora del teléfono.")
+    if momento < ahora - timedelta(hours=settings.porteria_desfase_maximo_horas):
+        raise HTTPException(status_code=422, detail=(
+            f"El registro tiene más de {settings.porteria_desfase_maximo_horas} horas. "
+            "Repórtelo a coordinación para registrarlo manualmente."))
+    return min(momento, ahora), diferido
+
+
+def _inicio_del_dia() -> datetime:
+    hoy = _ahora().astimezone(TZ_ESCUELA).date()
+    return datetime.combine(hoy, time.min, tzinfo=TZ_ESCUELA).astimezone(UTC)
 
 
 # ---------- Búsqueda y consulta ----------
@@ -138,6 +168,71 @@ def adultos_autorizados(
         for a in adultos
         if _vigente(a, ahora)
     ]
+
+
+@api.get("/porteria/padron")
+def padron(
+    request: Request,
+    db: Session = Depends(get_db),
+    usuario: Usuario = Depends(require_roles(*PORTERIA)),
+):
+    """Lo mínimo para consultar sin conexión: alumnos activos, su salón y las personas autorizadas
+    vigentes (o que lo serán antes de que el padrón venza). Sin teléfonos, documentos ni fotos."""
+    settings = request.app.state.settings
+    ahora = _ahora()
+    vence = ahora + timedelta(hours=settings.porteria_padron_horas)
+    anio = db.scalar(select(AnioLectivo).where(AnioLectivo.activo.is_(True)))
+    salones = db.scalars(select(Salon).where(Salon.anio_lectivo_id == (anio.id if anio else -1))
+                         .order_by(Salon.nombre)).all()
+    alumnos = db.scalars(select(Alumno).where(Alumno.activo.is_(True),
+                                              Alumno.salon_id.in_([s.id for s in salones]))
+                         .order_by(Alumno.nombre)).all()
+    adultos: dict[int, list[dict]] = {}
+    for a in db.scalars(select(AdultoAutorizado).where(
+            AdultoAutorizado.estado == "validado", AdultoAutorizado.alumno_id.in_([x.id for x in alumnos]))):
+        if _aware(a.vigente_desde) >= vence or (a.vigente_hasta is not None and _aware(a.vigente_hasta) <= ahora):
+            continue
+        adultos.setdefault(a.alumno_id, []).append({
+            "id": a.id, "nombre": a.nombre, "parentesco": a.parentesco, "temporal": a.temporal,
+            "desde": _aware(a.vigente_desde).isoformat(),
+            "hasta": _aware(a.vigente_hasta).isoformat() if a.vigente_hasta else None,
+        })
+    salidas = {r.alumno_id: _aware(r.ocurrida_en).isoformat() for r in db.scalars(
+        select(Recogida).where(Recogida.ocurrida_en >= _inicio_del_dia(), Recogida.no_autorizado.is_(False))
+        .order_by(Recogida.ocurrida_en))}
+    nombres_salon = {s.id: s.nombre for s in salones}
+    registrar(db, usuario_id=usuario.id, accion="descargar_padron", entidad="porteria",
+              cambio={"alumnos": len(alumnos)}, ip=_ip(request))
+    db.commit()
+    return {
+        "generado_en": ahora.isoformat(),
+        "vence_en": vence.isoformat(),
+        "salones": [{"id": s.id, "nombre": s.nombre} for s in salones],
+        "alumnos": [{
+            "id": a.id, "nombre": a.nombre, "codigo": a.codigo_interno, "salon_id": a.salon_id,
+            "salon": nombres_salon.get(a.salon_id, ""), "adultos": adultos.get(a.id, []),
+            "salida": salidas.get(a.id),
+        } for a in alumnos],
+    }
+
+
+@api.get("/porteria/salidas-hoy")
+def salidas_hoy(
+    db: Session = Depends(get_db),
+    _: Usuario = Depends(require_roles(*PORTERIA)),
+):
+    filas = db.execute(
+        select(Recogida, Alumno, Salon.nombre, AdultoAutorizado.nombre, AdultoAutorizado.parentesco)
+        .join(Alumno, Alumno.id == Recogida.alumno_id)
+        .join(Salon, Salon.id == Alumno.salon_id, isouter=True)
+        .join(AdultoAutorizado, AdultoAutorizado.id == Recogida.adulto_id, isouter=True)
+        .where(Recogida.ocurrida_en >= _inicio_del_dia())
+        .order_by(Recogida.ocurrida_en.desc()).limit(200)
+    ).all()
+    return [{
+        "id": r.id, "hora": _aware(r.ocurrida_en).isoformat(), "alumno": a.nombre, "salon": salon or "",
+        "adulto": adulto, "parentesco": parentesco, "no_autorizado": r.no_autorizado, "sin_conexion": r.sin_conexion,
+    } for r, a, salon, adulto, parentesco in filas]
 
 
 # ---------- Registro de recogidas ----------
@@ -220,20 +315,33 @@ def registrar_recogida_manual(
 
     alumno = _alumno_activo(db, body.alumno_id)
     adulto = db.get(AdultoAutorizado, body.adulto_id)
-    ahora = _ahora()
-    if adulto is None or adulto.alumno_id != alumno.id or not _vigente(adulto, ahora):
+    momento, sin_conexion = _momento_del_evento(body.ocurrida_en, body.diferido, request)
+    if adulto is None or adulto.alumno_id != alumno.id:
+        raise HTTPException(status_code=409, detail="Esta persona no está autorizada para recoger al alumno.")
+    vigente = _vigente(adulto, momento)
+    if not vigente and not sin_conexion:
         raise HTTPException(status_code=409, detail="Esta persona no está autorizada para recoger al alumno.")
 
     recogida = Recogida(
-        alumno_id=alumno.id, adulto_id=adulto.id, no_autorizado=False,
-        registrada_por=usuario.id, verificada_por=usuario.id, ocurrida_en=ahora, sync_id=body.sync_id,
+        alumno_id=alumno.id, adulto_id=adulto.id, no_autorizado=False, registrada_por=usuario.id,
+        verificada_por=usuario.id, ocurrida_en=momento, sync_id=body.sync_id, sin_conexion=sin_conexion,
     )
     db.add(recogida)
     _flush(db)
+    alerta = None
+    if not vigente:
+        # La entrega ya ocurrió con el padrón guardado en el teléfono, pero la autorización cambió
+        # mientras no había red. Se registra igual (es un hecho) y queda un incidente para coordinación.
+        alerta = ("La autorización de esta persona cambió mientras el teléfono estaba sin conexión. "
+                  "Se registró un incidente para que coordinación lo revise.")
+        db.add(Incidente(recogida_id=recogida.id, registrado_por=usuario.id, descripcion=(
+            "Recogida registrada sin conexión con una persona cuya autorización no estaba vigente "
+            "al sincronizar. Revisar con la familia.")))
     registrar(db, usuario_id=usuario.id, accion="recogida_manual", entidad="recogida", entidad_id=recogida.id,
-              cambio={"alumno_id": alumno.id, "adulto_id": adulto.id}, ip=_ip(request))
+              cambio={"alumno_id": alumno.id, "adulto_id": adulto.id, "sin_conexion": sin_conexion,
+                      "vigente": vigente}, ip=_ip(request))
     _guardar(db)
-    return _recogida_out(recogida)
+    return _recogida_out(recogida, alerta)
 
 
 # ---------- Persona no autorizada ----------
@@ -252,10 +360,10 @@ def registrar_no_autorizado(
             return {"recogida_id": existente.id, "pasos": PASOS_NO_AUTORIZADO}
 
     alumno = _alumno_activo(db, body.alumno_id)
-    ahora = _ahora()
+    momento, sin_conexion = _momento_del_evento(body.ocurrida_en, body.diferido, request)
     recogida = Recogida(
-        alumno_id=alumno.id, adulto_id=None, no_autorizado=True,
-        registrada_por=usuario.id, verificada_por=usuario.id, ocurrida_en=ahora, sync_id=body.sync_id,
+        alumno_id=alumno.id, adulto_id=None, no_autorizado=True, registrada_por=usuario.id,
+        verificada_por=usuario.id, ocurrida_en=momento, sync_id=body.sync_id, sin_conexion=sin_conexion,
     )
     db.add(recogida)
     _flush(db)

@@ -36,6 +36,10 @@ class Settings(BaseSettings):
     pickup_code_ttl_minutes: int = 10
     pickup_code_max_attempts: int = 5
     family_link_ttl_days: int = 30
+    # Portería sin conexión: horas que el padrón descargado sirve en el teléfono, y antigüedad máxima
+    # aceptada para un registro hecho sin conexión
+    porteria_padron_horas: int = 12
+    porteria_desfase_maximo_horas: int = 24
 
     # Demo pública: muestra usuarios de prueba y el código TOTP vigente en la pantalla de acceso.
     # Nunca activar con datos reales.

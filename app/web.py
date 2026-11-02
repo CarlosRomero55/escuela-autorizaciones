@@ -170,7 +170,10 @@ def menu(actor: Actor, settings: Settings) -> list[tuple[str, list[tuple[str, st
             ("campanas", "/admin/campanas", "bi-clipboard-check", "Campañas"),
             ("adultos", "/admin/adultos", "bi-person-check", "Personas autorizadas"),
             ("familias", "/admin/familias", "bi-house-heart", "Familias"),
+            ("porteria", "/porteria/", "bi-door-open", "Portería"),
         ]))
+    elif puede(actor, "porteria.operar"):
+        grupos.append(("Recogida", [("porteria", "/porteria/", "bi-door-open", "Portería")]))
     sistema = []
     if puede(actor, "bitacora.ver"):
         sistema.append(("bitacora", "/admin/bitacora", "bi-journal-text", "Bitácora"))

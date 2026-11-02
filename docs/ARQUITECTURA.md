@@ -94,6 +94,33 @@ Reglas: no se crean tareas ni se califica en un trimestre cerrado; el promedio e
 
 Pendiente para producción: almacenamiento R2/S3 con URLs firmadas (el adaptador `Almacen` ya separa la interfaz), antivirus, visor 3D, transcodificación de video y detección de plagio.
 
+## Portería sin conexión (Fase 6)
+
+```mermaid
+sequenceDiagram
+  participant T as Teléfono (PWA)
+  participant S as Servidor
+  T->>S: GET /api/porteria/padron (queda en la bitácora)
+  S-->>T: alumnos activos + personas autorizadas, vence en 12 h
+  Note over T: IndexedDB: padrón y cola
+  T->>T: entrega → cola {sync_id, hora del teléfono}
+  T->>S: POST recogida (intento inmediato)
+  alt hay red
+    S-->>T: 201 · o 409 si la autorización ya no vale: no se entrega
+  else sin red
+    Note over T: queda «por enviar» y se marca diferido
+    T->>S: al volver la red, reintento con espera creciente
+    S-->>T: 201 (sync_id repetido = mismo registro)
+  end
+```
+
+- **Service worker** con alcance `/porteria/`: guarda la aplicación (red primero para la página, caché para los archivos estáticos). La API nunca pasa por la caché.
+- **Validar un código** de la familia requiere conexión: el código solo se puede comprobar en el servidor (se guarda como HMAC).
+- **Horas imposibles** (en el futuro o con más de 24 h) se rechazan y quedan en el teléfono como «Rechazado» para reportarlas.
+- **Autorización revocada sin red:** con red, la entrega se bloquea (409). Si el envío llega diferido, la salida ya ocurrió: se registra con `sin_conexion = true` y se crea un incidente para coordinación.
+- **Al salir** se borran el padrón y las cachés; no se puede salir con registros por enviar.
+- Al cambiar los archivos de la aplicación, subir `VERSION` en `static/porteria/sw.js` para que los teléfonos descarguen la nueva versión.
+
 ## Flujo de acceso
 
 ```mermaid
@@ -124,5 +151,5 @@ sequenceDiagram
 |---|---|---|
 | 1 | Base, layout y sistema de diseño, roles, TOTP, sesiones y dispositivos, usuarios, estructura académica, matrículas | Hecha |
 | 3 | Clases, tareas, entregas, prórrogas, rúbricas, calificaciones | Hecha |
-| 6 | Autorizaciones y recogida | Backend y página de familias hechos; falta la PWA de portería (siguiente) |
+| 6 | Autorizaciones, recogida y aplicación de portería sin conexión | Hecha |
 | 2, 4, 5, 7–11 | Sitio público, portal del representante, boletines, bienestar, directivos, evaluaciones, operación | Diseño documentado |

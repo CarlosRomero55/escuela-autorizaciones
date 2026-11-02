@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="es-EC">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1e2a3a">
+  <title>Portería · Escuela demo</title>
+  <link rel="manifest" href="/porteria/manifest.webmanifest">
+  <link rel="icon" href="/static/porteria/icono-192.png">
+  <link rel="apple-touch-icon" href="/static/porteria/icono-192.png">
+  <link rel="stylesheet" href="/static/vendor/bootstrap-icons/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="/static/porteria/porteria.css">
+</head>
+<body data-usuario="{{ usuario.id }}" data-horas-padron="{{ horas_padron }}">
+  <header class="barra">
+    <div class="barra-fila">
+      <div class="marca"><span class="logo"><i class="bi bi-door-open-fill" aria-hidden="true"></i></span>
+        <span><strong>Portería</strong><small>{{ usuario.persona.nombres }}{% if actor.rol != "porteria" %} · {{ ETIQUETAS_ROL[actor.rol] }}{% endif %}</small></span>
+      </div>
+      <span class="red" id="estado-red" role="status" aria-live="polite"><i class="bi bi-circle-fill" aria-hidden="true"></i> <span>Comprobando…</span></span>
+      <details class="menu-usuario">
+        <summary aria-label="Opciones"><i class="bi bi-three-dots-vertical" aria-hidden="true"></i></summary>
+        <div class="menu-lista">
+          {% if actor.rol != "porteria" %}<a href="/portal"><i class="bi bi-arrow-left" aria-hidden="true"></i> Volver al portal</a>{% else %}<a href="/portal/perfil"><i class="bi bi-person-gear" aria-hidden="true"></i> Mi cuenta</a>{% endif %}
+          <button type="button" id="boton-actualizar"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i> Actualizar padrón</button>
+          <button type="button" id="boton-salir"><i class="bi bi-box-arrow-right" aria-hidden="true"></i> Salir y borrar datos del teléfono</button>
+        </div>
+      </details>
+    </div>
+    <p class="padron" id="estado-padron">Cargando el padrón…</p>
+    <div class="aviso-sesion" id="aviso-sesion" hidden>
+      <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
+      <span>La sesión venció. <a href="/ingresar">Ingrese de nuevo</a> para enviar los registros pendientes; no se perderán.</span>
+    </div>
+  </header>
+
+  <main id="principal">
+    <!-- Buscar -->
+    <section class="vista" id="vista-buscar" aria-labelledby="t-buscar">
+      <h1 class="visually-hidden" id="t-buscar">Buscar alumno</h1>
+      <div class="buscador">
+        <i class="bi bi-search" aria-hidden="true"></i>
+        <label class="visually-hidden" for="busqueda">Nombre del alumno o código</label>
+        <input id="busqueda" type="search" placeholder="Nombre del alumno o código" autocomplete="off" enterkeyhint="search">
+        <button type="button" class="boton-icono" id="boton-escanear" hidden aria-label="Escanear código QR"><i class="bi bi-qr-code-scan" aria-hidden="true"></i></button>
+      </div>
+      <div class="chips" id="salones" role="group" aria-label="Filtrar por salón"></div>
+      <ul class="lista" id="resultados" aria-live="polite"></ul>
+      <p class="vacio" id="sin-resultados" hidden>No hay alumnos que coincidan.</p>
+    </section>
+
+    <!-- Alumno -->
+    <section class="vista" id="vista-alumno" hidden aria-labelledby="alumno-nombre">
+      <button type="button" class="volver" data-ir="buscar"><i class="bi bi-arrow-left" aria-hidden="true"></i> Buscar</button>
+      <div class="ficha">
+        <span class="avatar" id="alumno-iniciales" aria-hidden="true"></span>
+        <div><h1 id="alumno-nombre"></h1><p id="alumno-salon"></p></div>
+      </div>
+      <div class="alerta alerta-ambar" id="alumno-salida" hidden></div>
+
+      <h2>Personas autorizadas hoy</h2>
+      <ul class="lista" id="adultos"></ul>
+      <p class="nota">Pida el documento de identidad y compare el nombre antes de entregar.</p>
+
+      <h2>Código de la familia</h2>
+      <form class="codigo" id="form-codigo" autocomplete="off">
+        <label class="visually-hidden" for="codigo">Código de 6 dígitos</label>
+        <input id="codigo" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="000000" required>
+        <button type="submit" class="boton boton-primario">Validar</button>
+      </form>
+      <p class="nota" id="nota-codigo">La familia genera el código desde su enlace; vence en pocos minutos y sirve una sola vez.</p>
+
+      <button type="button" class="boton boton-peligro ancho" id="boton-no-autorizado"><i class="bi bi-shield-exclamation" aria-hidden="true"></i> Persona no autorizada</button>
+    </section>
+
+    <!-- Protocolo -->
+    <section class="vista" id="vista-protocolo" hidden aria-labelledby="t-protocolo">
+      <button type="button" class="volver" data-ir="alumno"><i class="bi bi-arrow-left" aria-hidden="true"></i> Volver</button>
+      <div class="alerta alerta-roja"><i class="bi bi-shield-exclamation" aria-hidden="true"></i>
+        <div><h1 id="t-protocolo">No entregue al alumno</h1><p id="protocolo-alumno"></p></div>
+      </div>
+      <ol class="pasos">
+        {% for paso in pasos %}<li>{{ paso }}</li>{% endfor %}
+      </ol>
+      <form id="form-incidente" class="formulario">
+        <label for="descripcion">Qué ocurrió <span class="req">(obligatorio)</span></label>
+        <textarea id="descripcion" rows="3" minlength="10" maxlength="2000" required placeholder="Hechos observados, sin juzgar a la persona."></textarea>
+        <label for="personas">Persona que intentó retirarlo</label>
+        <input id="personas" maxlength="1000" placeholder="Nombre que declaró y documento, si lo mostró">
+        <label for="acciones">Acciones tomadas</label>
+        <textarea id="acciones" rows="2" maxlength="2000" placeholder="A quién se avisó y qué se hizo"></textarea>
+        <button type="submit" class="boton boton-peligro ancho">Registrar incidente</button>
+      </form>
+    </section>
+
+    <!-- Salidas de hoy -->
+    <section class="vista" id="vista-salidas" hidden aria-labelledby="t-salidas">
+      <h1 id="t-salidas">Salidas de hoy</h1>
+      <p class="nota" id="salidas-nota"></p>
+      <ul class="lista" id="salidas"></ul>
+    </section>
+
+    <!-- Pendientes -->
+    <section class="vista" id="vista-pendientes" hidden aria-labelledby="t-pendientes">
+      <h1 id="t-pendientes">Por enviar</h1>
+      <p class="nota">Los registros hechos sin conexión se guardan en este teléfono y se envían solos al volver la red. Cada uno lleva un identificador único, así que reintentar no los duplica.</p>
+      <button type="button" class="boton boton-primario ancho" id="boton-sincronizar"><i class="bi bi-cloud-arrow-up" aria-hidden="true"></i> Enviar ahora</button>
+      <ul class="lista" id="pendientes"></ul>
+      <p class="vacio" id="sin-pendientes">No hay registros por enviar.</p>
+    </section>
+  </main>
+
+  <nav class="pestanas" aria-label="Secciones">
+    <button type="button" data-ir="buscar" aria-current="page"><i class="bi bi-search" aria-hidden="true"></i><span>Buscar</span></button>
+    <button type="button" data-ir="salidas"><i class="bi bi-clock-history" aria-hidden="true"></i><span>Salidas</span></button>
+    <button type="button" data-ir="pendientes"><i class="bi bi-cloud-arrow-up" aria-hidden="true"></i><span>Por enviar</span><b class="contador" id="contador" hidden>0</b></button>
+  </nav>
+
+  <dialog id="confirmar" aria-labelledby="confirmar-titulo">
+    <form method="dialog">
+      <h2 id="confirmar-titulo">¿Entregar al alumno?</h2>
+      <p id="confirmar-texto"></p>
+      <p class="nota"><i class="bi bi-person-vcard" aria-hidden="true"></i> Verifique el documento de identidad.</p>
+      <div class="acciones">
+        <button value="no" class="boton">Cancelar</button>
+        <button value="si" class="boton boton-primario">Sí, entregar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="escaner" aria-labelledby="escaner-titulo">
+    <h2 id="escaner-titulo">Escanear código del alumno</h2>
+    <video id="video" playsinline muted></video>
+    <p class="nota" id="escaner-nota">Apunte la cámara al código QR del carnet.</p>
+    <form method="dialog"><button class="boton ancho">Cerrar</button></form>
+  </dialog>
+
+  <div class="avisos" id="avisos" aria-live="assertive"></div>
+  <script src="/static/porteria/porteria.js" defer></script>
+</body>
+</html>

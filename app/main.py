@@ -18,6 +18,7 @@ from app.routers.familias import publico as familias_publico
 from app.routers.portal import router as portal_router
 from app.routers.porteria import api as porteria_api
 from app.routers.porteria import publico_codigos
+from app.routers.porteria_web import router as porteria_web_router
 from app.services import ErrorNegocio
 from app.web import FormularioVencido, NoAutenticado, PasoPendiente, SinPermiso, pagina_error
 
@@ -106,7 +107,7 @@ def create_app(session_factory=None, settings: Settings | None = None) -> FastAP
 
     app.mount("/static", StaticFiles(directory=RAIZ / "static"), name="static")
     for router in (auth_router, admin_router, familias_api, familias_publico, porteria_api, publico_codigos,
-                   acceso_router, portal_router, clases_router, admin_html_router):
+                   acceso_router, portal_router, clases_router, porteria_web_router, admin_html_router):
         app.include_router(router)
 
     @app.get("/", include_in_schema=False)

@@ -66,6 +66,9 @@ def _tarjetas_salon(db: Session, salon_ids) -> list[dict]:
 @router.get("", response_class=HTMLResponse)
 def inicio(w: Web = Depends(web)):
     db, actor = w.db, w.actor
+    if actor.rol == "porteria":
+        # El personal de portería trabaja en su aplicación; el portal solo le sirve para su cuenta
+        return volver("/porteria/")
     anio = anio_activo(db)
     datos: dict = {"anio": anio}
 

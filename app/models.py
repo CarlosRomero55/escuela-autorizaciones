@@ -511,6 +511,8 @@ class Recogida(Base):
     verificada_por: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"), nullable=True)
     ocurrida_en: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     sync_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # Registrada en el teléfono sin conexión y enviada después; ocurrida_en es la hora del teléfono
+    sin_conexion: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     creada_en: Mapped[datetime] = _creado_en()
 
 
