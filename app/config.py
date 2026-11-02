@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -45,6 +46,15 @@ class Settings(BaseSettings):
     # Nunca activar con datos reales.
     demo_mode: bool = False
     demo_password: str = ""
+
+    @field_validator("database_url")
+    @classmethod
+    def _controlador_psycopg(cls, valor: str) -> str:
+        # Neon, Render y otros entregan «postgresql://» o «postgres://»; SQLAlchemy necesita el controlador
+        for prefijo in ("postgres://", "postgresql://"):
+            if valor.startswith(prefijo):
+                return "postgresql+psycopg://" + valor[len(prefijo):]
+        return valor
 
     @property
     def es_produccion(self) -> bool:

@@ -39,7 +39,18 @@ from app.permisos import (
     gestiona_clase,
 )
 from app.tiempo import TZ_ESCUELA, ahora, desde_formulario
-from app.web import Web, acceso_vigente, avisar, entero, no_encontrado, render, verificar_csrf, volver, web
+from app.web import (
+    Web,
+    acceso_vigente,
+    avisar,
+    entero,
+    no_encontrado,
+    pagina_error,
+    render,
+    verificar_csrf,
+    volver,
+    web,
+)
 
 router = APIRouter(prefix="/portal", include_in_schema=False)
 
@@ -400,13 +411,22 @@ def _archivo_visible(w: Web, archivo_id: int) -> ArchivoEntrega:
     return archivo
 
 
+def _archivo_perdido(w: Web) -> HTMLResponse:
+    # En la demo gratuita el disco se borra al reiniciar el servidor; en producción se usa S3/R2
+    return pagina_error(w.request, "El archivo ya no está disponible en el almacenamiento. Pida al estudiante "
+                        "que lo vuelva a entregar.", 404, "Archivo no disponible")
+
+
 @router.get("/archivos/{archivo_id}")
 def descargar(archivo_id: int, request: Request, w: Web = Depends(web)):
     try:
         archivo = _archivo_visible(w, archivo_id)
     except (SinAlcance, MotivoRequerido):
         return no_encontrado(w)
-    contenido = request.app.state.almacen.leer(archivo.clave)
+    try:
+        contenido = request.app.state.almacen.leer(archivo.clave)
+    except FileNotFoundError:
+        return _archivo_perdido(w)
     # Imágenes y PDF se pueden ver en el navegador; todo lo demás se descarga. El sandbox impide
     # que un archivo ejecute scripts aunque se abra directamente.
     en_linea = archivo.mime.startswith("image/") or archivo.mime == "application/pdf"
@@ -426,7 +446,10 @@ def ver_codigo(archivo_id: int, request: Request, w: Web = Depends(web)):
         return no_encontrado(w)
     if not archivo.mime.startswith("text/"):
         return volver(f"/portal/archivos/{archivo_id}")
-    texto = request.app.state.almacen.leer(archivo.clave).decode("utf-8", errors="replace")
+    try:
+        texto = request.app.state.almacen.leer(archivo.clave).decode("utf-8", errors="replace")
+    except FileNotFoundError:
+        return _archivo_perdido(w)
     entrega = w.db.get(Entrega, archivo.entrega_id)
     return render(w, "clases/codigo.html", {"archivo": archivo, "texto": texto, "entrega": entrega}, seccion="inicio")
 

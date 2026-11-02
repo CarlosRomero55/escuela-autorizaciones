@@ -132,3 +132,23 @@ def test_totp_provisioning_uri_contains_issuer():
     uri = security.totp_provisioning_uri(secret, "sofia@ejemplo.test")
     assert uri.startswith("otpauth://totp/")
     assert "escuela-autorizaciones" in uri
+
+
+def test_cadena_de_conexion_de_neon_se_adapta_al_controlador():
+    from app.config import Settings
+
+    url = "postgresql://usuario:clave@ep-ejemplo.us-east-1.aws.neon.tech/escuela?sslmode=require"
+    assert Settings(database_url=url).database_url.startswith("postgresql+psycopg://usuario:clave@ep-ejemplo")
+    assert Settings(database_url="postgres://u:c@h/db").database_url == "postgresql+psycopg://u:c@h/db"
+    assert Settings(database_url="sqlite://").database_url == "sqlite://"
+
+
+def test_clave_de_cifrado_generada_por_render_sirve():
+    """Render genera valores base64 estándar de 256 bits (pueden traer «+» y «/»)."""
+    import base64
+
+    from app import crypto
+
+    clave = base64.b64encode(bytes(range(250, 256)) + bytes(26)).decode()
+    assert "+" in clave or "/" in clave
+    assert crypto.descifrar(crypto.cifrar("secreto", clave), clave) == "secreto"

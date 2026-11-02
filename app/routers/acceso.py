@@ -2,10 +2,11 @@
 
 import re
 import secrets
+from datetime import timedelta
 
 import pyotp
 import segno
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from markupsafe import Markup
 from sqlalchemy import or_, select
@@ -24,8 +25,9 @@ from app.auth import (
     verificar_totp,
 )
 from app.db import get_db
-from app.models import EnvioSaliente, Usuario
+from app.models import Alumno, EnvioSaliente, FamiliaAlumno, Grado, Salon, TokenAcceso, Usuario
 from app.permisos import requiere_totp
+from app.tiempo import ahora
 from app.web import render_publico, verificar_csrf, volver
 
 router = APIRouter(include_in_schema=False)
@@ -276,3 +278,23 @@ def enviar_recuperar(request: Request, email: str = Form(""), db: Session = Depe
 @router.get("/admin/login")
 def login_antiguo():
     return RedirectResponse("/ingresar", status_code=301)
+
+
+@router.post("/demo/familia", dependencies=[Depends(verificar_csrf)])
+def demo_familia(request: Request, db: Session = Depends(get_db)):
+    """Solo en la demo pública: abre la página de una familia ficticia sin que el visitante
+    tenga que pedir un enlace. El enlace dura 2 horas y no invalida los de otros visitantes."""
+    settings = request.app.state.settings
+    if not settings.demo_mode:
+        raise HTTPException(status_code=404)
+    familia_id = db.scalar(
+        select(FamiliaAlumno.familia_id).join(Alumno, Alumno.id == FamiliaAlumno.alumno_id)
+        .join(Salon, Salon.id == Alumno.salon_id).join(Grado, Grado.id == Salon.grado_id)
+        .where(Grado.orden >= 5).order_by(FamiliaAlumno.familia_id).limit(1))
+    if familia_id is None:
+        raise HTTPException(status_code=404)
+    token = security.generate_token()
+    db.add(TokenAcceso(familia_id=familia_id, token_hash=security.hash_secret(token, settings.token_hmac_key),
+                       expira_en=ahora() + timedelta(hours=2)))
+    db.commit()
+    return volver(f"/f/{token}")

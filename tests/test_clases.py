@@ -381,3 +381,15 @@ def test_nombre_seguro_quita_rutas():
 def test_almacen_rechaza_claves_manipuladas(tmp_path):
     with pytest.raises(ValueError):
         archivos.Almacen(tmp_path).leer("../../secreto")
+
+
+def test_archivo_borrado_del_disco_responde_sin_error(app, session_factory, escuela):
+    """En la demo gratuita el disco se borra al reiniciar; la descarga no debe romperse."""
+    tarea = _tarea(session_factory, escuela)
+    c = entrar_web(app, escuela["estudiante"])
+    post_web(c, f"/portal/tareas/{tarea}/entregar", files=[("adjuntos", ("informe.pdf", PDF, "application/pdf"))])
+    with session_factory() as db:
+        archivo = db.scalar(select(ArchivoEntrega))
+    app.state.almacen.borrar(archivo.clave)
+    r = c.get(f"/portal/archivos/{archivo.id}")
+    assert r.status_code == 404 and "ya no está disponible" in r.text

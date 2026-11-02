@@ -181,3 +181,26 @@ def test_service_worker_y_manifiesto(client):
     assert manifiesto.headers["content-type"].startswith("application/manifest+json")
     assert manifiesto.json()["scope"] == "/porteria/"
     assert client.get("/porteria", follow_redirects=False).headers["location"] == "/porteria/"
+
+
+# ---------- Atajo de la demo pública ----------
+
+def test_atajo_a_la_pagina_de_una_familia_solo_en_modo_demo(session_factory, tmp_path):
+    from app.main import create_app
+    from tests.conftest import SETTINGS, crear_salon, csrf_de, sesion_admin
+
+    def aplicacion(demo: bool):
+        return create_app(session_factory=session_factory, settings=SETTINGS.model_copy(
+            update={"demo_mode": demo, "archivos_dir": str(tmp_path)}))
+
+    admin = sesion_admin(TestClient(aplicacion(False)), session_factory)
+    alumno = crear_alumno(session_factory, crear_salon(session_factory, "5.º A"), "Ana", "Demo")
+    familia = admin.post("/api/familias", json={"nombre_familia": "Familia Demo"}, headers=CSRF).json()
+    admin.post(f"/api/familias/{familia['id']}/alumnos", json={"alumno_id": alumno}, headers=CSRF)
+
+    for demo, esperado in ((False, 404), (True, 303)):
+        visitante = TestClient(aplicacion(demo))
+        r = visitante.post("/demo/familia", data={"csrf": csrf_de(visitante, "/ingresar")}, follow_redirects=False)
+        assert r.status_code == esperado
+    destino = r.headers["location"]
+    assert destino.startswith("/f/") and "Ana Demo" in visitante.get(destino).text

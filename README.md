@@ -13,7 +13,7 @@ Proyecto de portafolio: sistema web para una escuela primaria de Ecuador, con po
 | 6 | Autorizaciones digitales, enlaces firmados para familias, códigos de recogida de un solo uso, persona no autorizada, **aplicación de portería instalable con modo sin conexión** | **Hecha** (falta la mensajería real por WhatsApp: hoy es simulada) |
 | 2, 4, 5, 7–11 | Sitio público, portal del representante, boletines, bienestar, directivos, evaluaciones, operación | Diseño en [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md) |
 
-Calidad: **199 pruebas** (en SQLite y PostgreSQL), que incluyen los intentos de acceso cruzado entre roles, y una comprobación de que la migración coincide con el modelo. Lint con ruff e integración continua en GitHub Actions.
+Calidad: **203 pruebas** (en SQLite y PostgreSQL), que incluyen los intentos de acceso cruzado entre roles, y una comprobación de que la migración coincide con el modelo. Lint con ruff e integración continua en GitHub Actions.
 
 ## Lo más destacado
 
@@ -27,6 +27,10 @@ Calidad: **199 pruebas** (en SQLite y PostgreSQL), que incluyen los intentos de 
 - **Calificaciones según el Instructivo de Evaluación 2025:** escala 1,00–10,00 con dos decimales truncados, equivalencias cualitativas y Preparatoria solo cualitativa. Los valores están marcados para **verificar** con la normativa vigente.
 - **Portería sin conexión:** aplicación instalable (PWA) que guarda en el teléfono un padrón mínimo (alumnos y personas autorizadas, sin teléfonos ni documentos) que vence a las 12 horas. Los registros sin red se guardan con la hora real y se envían solos al volver la conexión, sin duplicados. Si una autorización cambió mientras no había red, la salida se registra igual (ya ocurrió) y se abre un incidente para coordinación. Al salir se borran los datos del teléfono. Probado de punta a punta en un navegador real con la red cortada.
 - **Diseño responsive** probado a 390 px (teléfono), 1366 px (Chromebook) y 1440 px (escritorio). Ver [docs/ESTILO.md](docs/ESTILO.md).
+
+## Demo publicada
+
+Se despliega en Render (aplicación) y Neon (PostgreSQL) con los planes gratuitos, usando `render.yaml`. Pasos y límites en [docs/DESPLIEGUE.md](docs/DESPLIEGUE.md).
 
 ## Probarlo localmente
 
@@ -86,7 +90,8 @@ static/porteria/  aplicación de portería: service worker, manifiesto, IndexedD
 migrations/       migraciones de Alembic
 templates/        layout, macros y páginas (Jinja2)
 static/           app.css, app.js y librerías incluidas (vendor/)
-docs/             arquitectura, permisos y guía de estilo
+docs/             arquitectura, permisos, guía de estilo y despliegue
+render.yaml       despliegue en Render (Blueprint)
 tests/            pruebas con pytest
 ```
 

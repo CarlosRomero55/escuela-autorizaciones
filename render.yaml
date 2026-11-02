@@ -1,0 +1,37 @@
+# Despliegue de la demo pública en Render (plan gratuito) con la base de datos en Neon.
+# Guía paso a paso: docs/DESPLIEGUE.md
+services:
+  - type: web
+    name: escuela-demo
+    runtime: python
+    plan: free
+    region: virginia          # la más cercana a Ecuador; Neon en AWS us-east-1 (N. Virginia)
+    branch: main
+    buildCommand: pip install -r requirements.txt
+    # El plan gratuito no tiene consola: las migraciones y los datos de la demo se aplican al arrancar.
+    # --si-hace-falta 7: puebla si la base está vacía y renueva la demo cuando tiene más de 7 días.
+    startCommand: >-
+      python scripts/seed.py --si-hace-falta 7 &&
+      uvicorn app.main:create_app --factory --host 0.0.0.0 --port $PORT
+      --proxy-headers --forwarded-allow-ips="*"
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.8"
+      - key: APP_ENV
+        value: production
+      - key: DEMO_MODE
+        value: "true"
+      # Cadena de conexión de Neon (se pega al crear el servicio; nunca va al repositorio)
+      - key: DATABASE_URL
+        sync: false
+      # Contraseña de los usuarios de demo, mínimo 10 caracteres (se muestra en la pantalla de acceso)
+      - key: DEMO_PASSWORD
+        sync: false
+      # Render genera valores aleatorios de 256 bits en base64; no cambiarlos después
+      # (ENCRYPTION_KEY descifra los secretos TOTP guardados en la base)
+      - key: TOKEN_HMAC_KEY
+        generateValue: true
+      - key: ENCRYPTION_KEY
+        generateValue: true
