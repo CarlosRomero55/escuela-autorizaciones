@@ -18,3 +18,5 @@ __pycache__/
 
 # Archivos subidos en desarrollo
 datos/
+.neon
+node_modules/
