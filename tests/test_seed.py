@@ -75,3 +75,15 @@ def test_enlaces_de_familia_de_demo_funcionan(app, session_factory):
         resumen = poblar(db, settings=SETTINGS, password=PASSWORD)
     for _, url in resumen["enlaces"]:
         assert TestClient(app).get(url).status_code == 200
+
+
+def test_personas_autorizadas_de_un_alumno_tienen_nombres_distintos(session_factory, tmp_path):
+    """En portería se elige a la persona por su nombre: dos «José Delgado» en el mismo alumno confunden."""
+    from app.models import AdultoAutorizado
+
+    with session_factory() as db:
+        poblar(db, settings=SETTINGS.model_copy(update={"archivos_dir": str(tmp_path)}), password=PASSWORD)
+        por_alumno: dict[int, list[str]] = {}
+        for adulto in db.scalars(select(AdultoAutorizado)):
+            por_alumno.setdefault(adulto.alumno_id, []).append(adulto.nombre)
+    assert all(len(nombres) == len(set(nombres)) for nombres in por_alumno.values())

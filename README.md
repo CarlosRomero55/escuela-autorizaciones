@@ -13,7 +13,7 @@ Proyecto de portafolio: sistema web para una escuela primaria de Ecuador, con po
 | 6 | Autorizaciones digitales, enlaces firmados para familias, códigos de recogida de un solo uso, persona no autorizada, **aplicación de portería instalable con modo sin conexión** | **Hecha** (falta la mensajería real por WhatsApp: hoy es simulada) |
 | 2, 4, 5, 7–11 | Sitio público, portal del representante, boletines, bienestar, directivos, evaluaciones, operación | Diseño en [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md) |
 
-Calidad: **207 pruebas** (en SQLite y PostgreSQL), que incluyen los intentos de acceso cruzado entre roles, y una comprobación de que la migración coincide con el modelo. Lint con ruff e integración continua en GitHub Actions.
+Calidad: **208 pruebas** (en SQLite y PostgreSQL), que incluyen los intentos de acceso cruzado entre roles, y una comprobación de que la migración coincide con el modelo. Lint con ruff e integración continua en GitHub Actions.
 
 ## Lo más destacado
 

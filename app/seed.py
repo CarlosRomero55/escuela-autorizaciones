@@ -452,10 +452,14 @@ def poblar(db: Session, *, settings: Settings, password: str, semilla: int = 202
         familia = next(f for f in familias if alumno in hijos[f.id])
         apellido = familia.nombre_familia.removeprefix("Familia ").split(" ")[0]
         lista = []
+        usados: set[str] = set()
         for parentesco in rng.sample(list(PARENTESCOS), 2):
             estado = "validado" if rng.random() < 0.88 else "pendiente"
+            # Nombres distintos para cada persona del mismo alumno: en portería se distinguen por el nombre
+            nombre = rng.choice([n for n in PARENTESCOS[parentesco] if n not in usados])
+            usados.add(nombre)
             adulto = AdultoAutorizado(alumno_id=alumno.id, familia_id=familia.id, estado=estado,
-                                      nombre=f"{rng.choice(PARENTESCOS[parentesco])} {apellido}", parentesco=parentesco,
+                                      nombre=f"{nombre} {apellido}", parentesco=parentesco,
                                       validado_por=sofia.id if estado == "validado" else None)
             db.add(adulto)
             lista.append(adulto)
