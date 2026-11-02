@@ -30,6 +30,8 @@ Calidad: **203 pruebas** (en SQLite y PostgreSQL), que incluyen los intentos de 
 
 ## Demo publicada
 
+**https://escuela-demo.onrender.com** · los usuarios de prueba y su contraseña aparecen en la pantalla de acceso. Si nadie la visitó en los últimos 15 minutos, la primera carga tarda cerca de un minuto (plan gratuito).
+
 Se despliega en Render (aplicación) y Neon (PostgreSQL) con los planes gratuitos, usando `render.yaml`. Pasos y límites en [docs/DESPLIEGUE.md](docs/DESPLIEGUE.md).
 
 ## Probarlo localmente
