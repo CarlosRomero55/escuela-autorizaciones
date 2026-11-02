@@ -204,3 +204,14 @@ def test_atajo_a_la_pagina_de_una_familia_solo_en_modo_demo(session_factory, tmp
         assert r.status_code == esperado
     destino = r.headers["location"]
     assert destino.startswith("/f/") and "Ana Demo" in visitante.get(destino).text
+
+
+def test_healthz_detecta_una_base_sin_tablas(client, session_factory):
+    """Si la base se vacía o cae, Render debe enterarse por el health check."""
+    from app.models import Base
+
+    assert client.get("/healthz").json() == {"ok": True}
+    with session_factory() as db:
+        Base.metadata.drop_all(db.get_bind())
+    r = client.get("/healthz")
+    assert r.status_code == 503 and r.json()["ok"] is False

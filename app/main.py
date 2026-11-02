@@ -3,11 +3,14 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import func, select
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.archivos import crear_almacen
 from app.auth import router as auth_router
 from app.config import Settings, get_settings
 from app.db import create_session_factory
+from app.models import AnioLectivo
 from app.ratelimit import RateLimiter
 from app.routers.acceso import router as acceso_router
 from app.routers.admin import router as admin_router
@@ -121,6 +124,13 @@ def create_app(session_factory=None, settings: Settings | None = None) -> FastAP
 
     @app.get("/healthz")
     def healthz():
+        # Consulta la base y una tabla de la aplicación: así el health check de Render detecta una base
+        # caída o vacía (sin migraciones), no solo que el proceso responde
+        try:
+            with app.state.session_factory() as db:
+                db.execute(select(func.count()).select_from(AnioLectivo)).scalar()
+        except SQLAlchemyError:
+            return JSONResponse(status_code=503, content={"ok": False, "detail": "Base de datos no disponible."})
         return {"ok": True}
 
     return app
