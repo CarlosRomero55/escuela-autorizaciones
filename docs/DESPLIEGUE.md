@@ -8,7 +8,8 @@ La aplicación corre en Render y la base de datos PostgreSQL en Neon, ambos en s
 |---|---|---|
 | Render | Se duerme tras 15 minutos sin visitas y tarda cerca de un minuto en despertar | La primera visita del día espera un minuto |
 | Render | 750 horas de instancia al mes | Alcanza para un servicio encendido todo el mes |
-| Render | Disco temporal: se borra al reiniciar o redesplegar | Los archivos subidos a las tareas se pierden; la página lo indica sin error. En producción: almacenamiento S3/R2 |
+| Render | Disco temporal: se borra al reiniciar o redesplegar | Sin bucket, los archivos de las tareas se pierden (la página lo indica sin error). Con el paso 3, quedan en Neon Object Storage |
+| Neon Object Storage | 5 GB en el plan gratuito | Sobra para la demo |
 | Render | Sin consola | Migraciones y datos de la demo se aplican solos al arrancar (`scripts/seed.py --si-hace-falta 7`) |
 | Neon | 1 GB por proyecto; se suspende tras 5 minutos sin uso | La demo usa unos pocos MB; la primera consulta tras la pausa tarda un poco más |
 
@@ -34,7 +35,25 @@ Los límites son los publicados por cada proveedor en noviembre de 2026; convien
 
 `TOKEN_HMAC_KEY` y `ENCRYPTION_KEY` las genera Render. No deben cambiarse después: sin la misma `ENCRYPTION_KEY` no se pueden leer los secretos TOTP guardados. Si se cambian, basta con vaciar la base para que la demo se vuelva a cargar.
 
-## 3. Comprobar
+## 3. Archivos de las tareas en Neon Object Storage (recomendado)
+
+1. En Neon, dentro del proyecto y la rama `production`: pestaña **Object storage** → **New bucket**. Nombre `escuela-archivos`, acceso **privado**.
+2. **Connect** → pestaña **Storage** → **Parameters only**. Ahí están el endpoint, la región y las credenciales (**Reveal credential** muestra la clave secreta).
+3. En Render → servicio → **Environment**, agregar:
+
+   | Variable | Valor |
+   |---|---|
+   | `ARCHIVOS_BUCKET` | `escuela-archivos` |
+   | `AWS_ENDPOINT_URL_S3` | el endpoint (`https://br-….storage….aws.neon.tech`) |
+   | `AWS_ACCESS_KEY_ID` | empieza con `nak_live_` |
+   | `AWS_SECRET_ACCESS_KEY` | empieza con `nsk_live_` |
+   | `AWS_REGION` | la región que muestra Neon (p. ej. `us-east-1`) |
+
+4. **Save, rebuild, and deploy**. Desde ese momento los archivos nuevos van al bucket. Los archivos de la demo que ya estaban en el disco se pierden; se recuperan en la próxima renovación semanal (o vaciando la base).
+
+El mismo adaptador sirve para Cloudflare R2 o AWS S3 cambiando solo esas variables.
+
+## 4. Comprobar
 
 - `/healthz` responde `{"ok": true}`.
 - En la pantalla de acceso aparecen los usuarios de demo, el botón «Ver la página de una familia» y, para el personal, el código de verificación en pantalla.

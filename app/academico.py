@@ -173,6 +173,16 @@ def publicar_tarea(db: Session, autor: Autor, tarea: Tarea) -> Tarea:
     return tarea
 
 
+def periodo_cerrado(db: Session, tarea: Tarea) -> bool:
+    return bool(db.scalar(select(PeriodoCalificacion.cerrado).where(PeriodoCalificacion.id == tarea.periodo_id)))
+
+
+def _exigir_periodo_abierto(db: Session, tarea: Tarea) -> None:
+    # Si se aceptara, el docente no podría calificarla: el trimestre cerrado bloquea las notas
+    if periodo_cerrado(db, tarea):
+        raise ErrorNegocio("El trimestre de esta tarea ya está cerrado: no se reciben entregas ni prórrogas.")
+
+
 def fecha_efectiva(db: Session, tarea: Tarea, alumno_id: int) -> datetime:
     """Fecha de entrega para un alumno: la de la tarea o la de su prórroga aprobada más reciente."""
     prorroga = db.scalar(select(func.max(Prorroga.nueva_fecha)).where(
@@ -196,6 +206,7 @@ def entregar(db: Session, autor: Autor, almacen: Almacen, tarea: Tarea, alumno_i
         raise NoEncontrado("Tarea no encontrada.")
     if not alumno_en_clase(db, tarea.clase, alumno_id):
         raise NoEncontrado("Tarea no encontrada.")
+    _exigir_periodo_abierto(db, tarea)
     entrega = db.scalar(select(Entrega).where(Entrega.tarea_id == tarea.id, Entrega.alumno_id == alumno_id))
     if entrega is not None and entrega.estado == "calificada":
         raise ErrorNegocio("Esta entrega ya fue calificada. Si necesita corregirla, pida al docente que la devuelva.")
@@ -289,6 +300,7 @@ def solicitar_prorroga(db: Session, autor: Autor, tarea: Tarea, alumno_id: int, 
         raise NoEncontrado("Tarea no encontrada.")
     if not tarea.admite_prorroga:
         raise ErrorNegocio("Esta tarea no admite prórrogas.")
+    _exigir_periodo_abierto(db, tarea)
     entrega = db.scalar(select(Entrega).where(Entrega.tarea_id == tarea.id, Entrega.alumno_id == alumno_id))
     if entrega is not None and entrega.estado == "calificada":
         raise ErrorNegocio("La tarea ya fue calificada.")
@@ -392,11 +404,13 @@ def situacion_alumno(db: Session, alumno: Alumno) -> list[dict]:
         SalonMateriaDocente.salon_id == alumno.salon_id, Tarea.estado == "publicada")).all()
     entregas = {e.tarea_id: e for e in db.scalars(select(Entrega).where(
         Entrega.alumno_id == alumno.id, Entrega.tarea_id.in_([t.id for t in tareas])))}
+    cerrados = set(db.scalars(select(PeriodoCalificacion.id).where(PeriodoCalificacion.cerrado.is_(True))))
     filas = []
     for tarea in tareas:
         vence = fecha_efectiva(db, tarea, alumno.id)
         entrega = entregas.get(tarea.id)
-        filas.append({"tarea": tarea, "vence": vence, "entrega": entrega, "estado": estado_para(entrega, vence)})
+        filas.append({"tarea": tarea, "vence": vence, "entrega": entrega, "estado": estado_para(entrega, vence),
+                      "cerrado": tarea.periodo_id in cerrados})
     return sorted(filas, key=lambda f: f["vence"])
 
 
@@ -404,7 +418,8 @@ def resumen_situacion(filas: list[dict]) -> dict:
     hechas = sum(1 for f in filas if f["estado"] in ("entregada", "con_retraso", "calificada"))
     total = len(filas)
     return {
-        "pendientes": [f for f in filas if f["estado"] in ("pendiente", "atrasada", "devuelta")],
+        # Lo de un trimestre cerrado ya no se puede entregar: no es «por hacer»
+        "pendientes": [f for f in filas if f["estado"] in ("pendiente", "atrasada", "devuelta") and not f.get("cerrado")],
         "hechas": hechas,
         "total": total,
         "porcentaje": round(100 * hechas / total) if total else 0,

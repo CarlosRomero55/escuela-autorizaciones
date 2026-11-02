@@ -65,6 +65,9 @@
           <p class="mb-0 text-secondary">{{ alumno.persona.nombres }} todavía no ha entregado esta tarea.</p>
         {% endif %}
 
+        {% if cerrado and not (entrega and entrega.estado == "calificada") %}
+          <p class="pequeno text-secondary mt-2 mb-0"><i class="bi bi-lock" aria-hidden="true"></i> El {{ periodo.nombre | lower }} está cerrado: ya no se reciben entregas para esta tarea.</p>
+        {% endif %}
         {% if puede_entregar %}
           {% if entrega %}<details class="reentrega mt-3 pt-3 borde-arriba"{% if entrega.estado == "devuelta" %} open{% endif %}>
             <summary><i class="bi bi-arrow-repeat" aria-hidden="true"></i> Volver a entregar</summary>{% endif %}
@@ -90,7 +93,7 @@
       </div>
     </div>
 
-    {% if tarea.admite_prorroga and (not entrega or entrega.estado == "devuelta") %}
+    {% if tarea.admite_prorroga and not cerrado and (not entrega or entrega.estado == "devuelta") %}
     <div class="card">
       <div class="card-header">Prórroga</div>
       <div class="card-body">

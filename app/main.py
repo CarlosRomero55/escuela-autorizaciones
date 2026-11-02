@@ -4,7 +4,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.archivos import Almacen
+from app.archivos import crear_almacen
 from app.auth import router as auth_router
 from app.config import Settings, get_settings
 from app.db import create_session_factory
@@ -52,7 +52,7 @@ def create_app(session_factory=None, settings: Settings | None = None) -> FastAP
 
     app.state.settings = settings
     app.state.session_factory = session_factory or create_session_factory(settings.database_url)
-    app.state.almacen = Almacen(settings.archivos_dir)
+    app.state.almacen = crear_almacen(settings)
     # Límites por conexión, además del bloqueo por cuenta que se guarda en la base de datos
     app.state.login_limiter = RateLimiter(max_hits=20, window_seconds=300)
     app.state.totp_limiter = RateLimiter(max_hits=5, window_seconds=300)

@@ -15,7 +15,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app import crypto, security, services
-from app.archivos import Almacen
+from app.archivos import crear_almacen
 from app.audit import registrar
 from app.config import Settings
 from app.models import (
@@ -203,7 +203,7 @@ def _a_las_18(dia: date) -> datetime:
 
 
 def _trabajo_academico(c: _Contexto, salones: list[Salon], periodos: list[PeriodoCalificacion], principal: Usuario,
-                       almacen: Almacen) -> dict:
+                       almacen) -> dict:
     """Tareas, entregas y notas de todos los salones, con fechas relativas a hoy para que la demo luzca al día."""
     db, rng = c.db, c.rng
     hoy = ahora().astimezone(TZ_ESCUELA).date()
@@ -502,7 +502,7 @@ def poblar(db: Session, *, settings: Settings, password: str, semilla: int = 202
 
     # ---------- Clases: tareas, entregas y calificaciones ----------
     db.flush()
-    academico = _trabajo_academico(c, salones, periodos, principal, Almacen(settings.archivos_dir))
+    academico = _trabajo_academico(c, salones, periodos, principal, crear_almacen(settings))
 
     registrar(db, usuario_id=None, accion="poblar_demo", entidad="sistema",
               cambio={"alumnos": len(alumnos), "familias": len(familias), "respuestas": respuestas, **academico})

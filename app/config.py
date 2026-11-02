@@ -32,6 +32,9 @@ class Settings(BaseSettings):
 
     # Archivos de entregas (disco local; en producción se reemplaza por un almacenamiento S3/R2)
     archivos_dir: str = "datos/archivos"
+    # Si se define, los archivos van a este bucket compatible con S3 (Neon Object Storage, R2, S3).
+    # Endpoint y credenciales: AWS_ENDPOINT_URL_S3, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION
+    archivos_bucket: str = ""
 
     # Autorizaciones y recogida
     pickup_code_ttl_minutes: int = 10

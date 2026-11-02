@@ -35,3 +35,15 @@ services:
         generateValue: true
       - key: ENCRYPTION_KEY
         generateValue: true
+      # Archivos de las tareas en Neon Object Storage (opcional; sin esto se guardan en el disco temporal).
+      # Valores en Neon: Connect → Storage → Parameters only. El bucket debe ser privado.
+      - key: ARCHIVOS_BUCKET
+        sync: false
+      - key: AWS_ENDPOINT_URL_S3
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_REGION
+        sync: false

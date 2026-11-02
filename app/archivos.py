@@ -4,8 +4,9 @@
 - Cada archivo se guarda con una clave aleatoria; el nombre original solo se usa para mostrarlo.
 - Las imágenes se vuelven a codificar sin metadatos (EXIF, incluida la ubicación GPS).
 - El código nunca se ejecuta: se descarga o se muestra como texto.
-- Pendiente para producción: escaneo antivirus (ClamAV) y almacenamiento S3/R2 con URLs firmadas;
-  el adaptador `Almacen` permite cambiarlo sin tocar el resto.
+- Almacenamiento: disco local (desarrollo) o un bucket compatible con S3 (Neon Object Storage,
+  Cloudflare R2, AWS S3) si se define ARCHIVOS_BUCKET; ver `crear_almacen`.
+- Pendiente para producción: escaneo antivirus (ClamAV).
 """
 
 import hashlib
@@ -188,3 +189,54 @@ class Almacen:
 
     def borrar(self, clave: str) -> None:
         self._ruta(clave).unlink(missing_ok=True)
+
+
+class AlmacenS3:
+    """Bucket compatible con S3, con la misma interfaz que `Almacen`.
+
+    Las credenciales y el endpoint se leen de las variables estándar del SDK (AWS_ENDPOINT_URL_S3,
+    AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION), que es como las entrega Neon.
+    El bucket debe ser privado: los archivos solo salen a través de la aplicación, que verifica permisos.
+    """
+
+    def __init__(self, bucket: str, cliente=None):
+        if cliente is None:
+            import boto3
+            from botocore.config import Config
+
+            cliente = boto3.client("s3", config=Config(s3={"addressing_style": "path"},
+                                                        retries={"max_attempts": 4, "mode": "standard"}))
+        self.bucket = bucket
+        self.cliente = cliente
+
+    @staticmethod
+    def _llave(clave: str) -> str:
+        if not re.fullmatch(r"[0-9a-f]{32}", clave):
+            raise ValueError("Clave de archivo no válida.")
+        return f"entregas/{clave[:2]}/{clave}"
+
+    nueva_clave = staticmethod(Almacen.nueva_clave)
+
+    def guardar(self, clave: str, contenido: bytes) -> None:
+        self.cliente.put_object(Bucket=self.bucket, Key=self._llave(clave), Body=contenido,
+                                ContentType="application/octet-stream")
+
+    def leer(self, clave: str) -> bytes:
+        from botocore.exceptions import ClientError
+
+        try:
+            return self.cliente.get_object(Bucket=self.bucket, Key=self._llave(clave))["Body"].read()
+        except ClientError as e:
+            if e.response.get("Error", {}).get("Code") in ("NoSuchKey", "404"):
+                raise FileNotFoundError(clave) from None
+            raise
+
+    def borrar(self, clave: str) -> None:
+        self.cliente.delete_object(Bucket=self.bucket, Key=self._llave(clave))
+
+
+def crear_almacen(settings) -> "Almacen | AlmacenS3":
+    """Bucket S3 si ARCHIVOS_BUCKET está definido; si no, disco local."""
+    if settings.archivos_bucket:
+        return AlmacenS3(settings.archivos_bucket)
+    return Almacen(settings.archivos_dir)

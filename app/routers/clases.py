@@ -285,13 +285,16 @@ def ver_tarea(tarea_id: int, alumno: str = "", w: Web = Depends(web)):
     if alumno_id is not None:
         entrega = db.scalar(select(Entrega).where(Entrega.tarea_id == tarea.id, Entrega.alumno_id == alumno_id))
         vence = academico.fecha_efectiva(db, tarea, alumno_id)
+        cerrado = academico.periodo_cerrado(db, tarea)
         datos.update(
             alumno=db.get(Alumno, alumno_id), entrega=entrega, vence=vence,
             estado_actual=academico.estado_para(entrega, vence),
             propios=[db.get(Alumno, a) for a in alumnos_propios_en_clase(db, actor, clase)],
             prorrogas=db.scalars(select(Prorroga).where(Prorroga.tarea_id == tarea.id, Prorroga.alumno_id == alumno_id)
                                  .order_by(Prorroga.id.desc())).all(),
-            puede_entregar=actor.rol == "estudiante" and (entrega is None or entrega.estado != "calificada"),
+            puede_entregar=(actor.rol == "estudiante" and not cerrado
+                            and (entrega is None or entrega.estado != "calificada")),
+            cerrado=cerrado,
         )
     elif _ve_todo_el_salon(actor):
         alumnos, _, celdas = academico.matriz(db, clase)

@@ -393,3 +393,25 @@ def test_archivo_borrado_del_disco_responde_sin_error(app, session_factory, escu
     app.state.almacen.borrar(archivo.clave)
     r = c.get(f"/portal/archivos/{archivo.id}")
     assert r.status_code == 404 and "ya no está disponible" in r.text
+
+
+def test_trimestre_cerrado_no_recibe_entregas_ni_prorrogas_ni_figura_por_hacer(app, session_factory, escuela, tmp_path):
+    """Si se aceptara, el docente no podría calificarla: el trimestre cerrado bloquea las notas."""
+    tarea_id = _tarea(session_factory, escuela, titulo="Del trimestre pasado")
+    alumno = escuela["alumnos"][0]
+    with session_factory() as db:
+        db.get(PeriodoCalificacion, escuela["periodos"]["actual"]).cerrado = True
+        db.commit()
+        tarea = db.get(Tarea, tarea_id)
+        autor = Autor(escuela["estudiante"].id, "estudiante", None)
+        with pytest.raises(ErrorNegocio, match="cerrado"):
+            academico.entregar(db, autor, archivos.Almacen(tmp_path), tarea, alumno, archivos=[],
+                               enlace="https://ejemplo.test", comentario="")
+        with pytest.raises(ErrorNegocio, match="cerrado"):
+            academico.solicitar_prorroga(db, autor, tarea, alumno, "Motivo suficientemente largo",
+                                         ahora() + timedelta(days=9))
+        from app.models import Alumno
+        resumen = academico.resumen_situacion(academico.situacion_alumno(db, db.get(Alumno, alumno)))
+        assert resumen["pendientes"] == [] and resumen["total"] == 1
+    pagina = entrar_web(app, escuela["estudiante"]).get(f"/portal/tareas/{tarea_id}").text
+    assert "ya no se reciben entregas" in pagina and 'name="adjuntos"' not in pagina and "Solicitar prórroga" not in pagina
