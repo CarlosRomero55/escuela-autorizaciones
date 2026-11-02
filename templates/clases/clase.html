@@ -50,7 +50,7 @@
             {% else %}Vence {{ t.fecha_entrega | local }}{% endif %}
           </span>
         </span>
-        <span class="text-end flex-shrink-0">
+        <span class="resumen text-end flex-shrink-0">
           {% if t.estado == "borrador" %}{{ estado("Borrador", "neutro", "bi-pencil") }}
           {% elif alumno_id %}
             {% set e = estados[f.estado] %}{{ estado(e[0], e[1]) }}

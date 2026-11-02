@@ -279,3 +279,22 @@ pre.codigo { padding: 1rem 1.25rem; max-height: 75vh; overflow: auto; font-size:
 details.reentrega > summary { cursor: pointer; color: var(--ui-primario-osc); font-weight: 500; list-style: none; }
 details.reentrega > summary::-webkit-details-marker { display: none; }
 details.reentrega[open] > summary { margin-bottom: .75rem; }
+
+/* Teléfonos: ajustes encontrados al revisar la demo publicada */
+@media (max-width: 575.98px) {
+  /* Tarjeta de tarea: los indicadores bajan a su propia fila para no aplastar el título */
+  .tarjeta-tarea { flex-wrap: wrap; }
+  .tarjeta-tarea > .flex-grow-1 { flex-basis: calc(100% - 48px - .9rem); }
+  .tarjeta-tarea .resumen { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: .35rem;
+                            text-align: left !important; padding-left: calc(48px + .9rem); }
+  .tarjeta-tarea .resumen > * { margin: 0 !important; }
+  .tarjeta-tarea .resumen .d-block { display: inline !important; margin-right: .25rem !important; }
+  /* Matriz: la columna de nombres no tapa las notas */
+  .tabla-matriz th[scope="row"] { white-space: normal; min-width: 7.5rem; max-width: 8.5rem; font-size: .82rem; line-height: 1.25; }
+}
+@media (max-width: 359.98px) {
+  /* Indicadores en pantallas muy angostas: el ícono arriba y el texto con todo el ancho */
+  .card.indicador { flex-direction: column; align-items: flex-start; gap: .5rem; padding: .9rem 1rem; }
+  .indicador .icono-circulo { width: 36px; height: 36px; flex: 0 0 36px; font-size: 1rem; }
+  .indicador .etiqueta { overflow-wrap: anywhere; }
+}
